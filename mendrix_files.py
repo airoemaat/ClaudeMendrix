@@ -16,6 +16,7 @@ Configuratie gaat via omgevingsvariabelen of een .env-bestand (zie .env.example)
 import argparse
 import base64
 import html
+import io
 import json
 import os
 import re
@@ -24,6 +25,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import zipfile
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -37,7 +39,10 @@ DEFAULTS = {
     "MENDRIX_AUTH_URL": "",
     "MENDRIX_AUTH_HEADER": "Authorization",
     "MENDRIX_AUTH_SCHEME": "Bearer",
-    # Endpoint-paden, relatief aan MENDRIX_BASE_URL. Controleer ze met `discover`.
+    # Endpoint-paden, relatief aan MENDRIX_BASE_URL.
+    # Bevestigd: het hele orderdossier als zip. Leeg laten = per document downloaden.
+    "MENDRIX_DOSSIER_ZIP_PATH": "/dossier/dossiers/order/{order_number}/zipped",
+    # Nog niet bevestigd (controleer met `discover`): order zoeken en losse documenten.
     "MENDRIX_ORDER_SEARCH_PATH": "/orders",
     "MENDRIX_ORDER_NUMBER_PARAM": "orderNumber",
     "MENDRIX_ORDER_REFERENCE_PARAM": "reference",
@@ -177,7 +182,40 @@ class MendrixClient:
                 return base64.b64decode(inline)
         return raw
 
+    def download_dossier_zip(self, order_number, output_dir=None, log=print):
+        url = self._url(self.cfg["MENDRIX_DOSSIER_ZIP_PATH"], order_number=order_number)
+        content, _ = self._request(url, headers={"Accept": "*/*"})
+        root = Path(output_dir or self.cfg["MENDRIX_OUTPUT_DIR"])
+        root.mkdir(parents=True, exist_ok=True)
+        zip_path = root / f"dossier_order_{safe_name(str(order_number))}.zip"
+        zip_path.write_bytes(content)
+        log(f"Order {order_number}: dossier opgeslagen als {zip_path} ({len(content)} bytes)")
+        results = [{"order": str(order_number), "file": str(zip_path), "size": len(content)}]
+        try:
+            with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                target = root / safe_name(str(order_number))
+                for info in zf.infolist():
+                    if info.is_dir():
+                        continue
+                    path = target / safe_name(Path(info.filename).name)
+                    target.mkdir(parents=True, exist_ok=True)
+                    path.write_bytes(zf.read(info))
+                    log(f"  - {path} ({info.file_size} bytes)")
+        except zipfile.BadZipFile:
+            log("  (antwoord is geen geldig zip-bestand; controleer het opgeslagen bestand)")
+        return results
+
     def fetch_order_files(self, order_number=None, reference=None, output_dir=None, log=print):
+        if self.cfg["MENDRIX_DOSSIER_ZIP_PATH"]:
+            numbers = [order_number] if order_number else [
+                first(o, "orderNumber", "number", "orderNo") or order_id(o)
+                for o in self.find_orders(reference=reference)]
+            if not numbers:
+                raise MendrixError("Geen order gevonden.")
+            results = []
+            for nr in numbers:
+                results += self.download_dossier_zip(nr, output_dir, log)
+            return results
         orders = self.find_orders(order_number, reference)
         if not orders:
             raise MendrixError("Geen order gevonden.")

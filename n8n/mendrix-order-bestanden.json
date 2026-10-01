@@ -1,172 +1,101 @@
 {
-  "name": "MendriX - bestanden uit orderdossier",
+  "name": "MendriX - Bestanden uit orderdossier (formulier)",
   "nodes": [
     {
-      "parameters": {
-        "formTitle": "Bestanden uit MendriX-orderdossier",
-        "formDescription": "Vul een ordernummer of orderreferentie in. Je krijgt een zip met alle dossierbestanden.",
-        "formFields": {
-          "values": [
-            {
-              "fieldLabel": "Zoeken op",
-              "fieldType": "dropdown",
-              "requiredField": true,
-              "fieldOptions": {
-                "values": [
-                  {
-                    "option": "Ordernummer"
-                  },
-                  {
-                    "option": "Orderreferentie"
-                  }
-                ]
-              }
-            },
-            {
-              "fieldLabel": "Waarde",
-              "requiredField": true,
-              "placeholder": "bijv. 12345"
-            }
-          ]
-        },
-        "responseMode": "responseNode",
-        "options": {}
-      },
-      "id": "69fe6df9-b644-40cc-92b0-5d6f7fea050f",
-      "name": "Formulier",
+      "id": "95275685-bc3e-4895-8434-2d1096363f55",
+      "name": "Ordernummer invullen",
       "type": "n8n-nodes-base.formTrigger",
-      "typeVersion": 2.2,
+      "typeVersion": 2.6,
       "position": [
         0,
         0
       ],
-      "webhookId": "688c4d51-a6d1-48a8-aa93-fef6c82a23b2"
-    },
-    {
+      "webhookId": "2395adf5-db1f-41b3-87bb-b495beff83f5",
       "parameters": {
-        "assignments": {
-          "assignments": [
+        "formTitle": "Bestanden uit MendriX-orderdossier",
+        "formDescription": "Vul een ordernummer in. Je krijgt een zip met alle bestanden uit het dossier van die order.",
+        "formFields": {
+          "values": [
             {
-              "id": "1",
-              "name": "baseUrl",
-              "value": "https://test.roemaat.nl:38001/api",
-              "type": "string"
-            },
-            {
-              "id": "2",
-              "name": "searchParam",
-              "type": "string",
-              "value": "={{ $json['Zoeken op'] === 'Ordernummer' ? 'orderNumber' : 'reference' }}"
-            },
-            {
-              "id": "3",
-              "name": "searchValue",
-              "value": "={{ $json.Waarde.trim() }}",
-              "type": "string"
+              "fieldLabel": "Ordernummer",
+              "fieldName": "ordernummer",
+              "fieldType": "text",
+              "placeholder": "bijv. 1402685",
+              "requiredField": true
             }
           ]
         },
-        "options": {}
-      },
-      "id": "06698da6-9407-40c4-8210-39f3018eda7e",
-      "name": "Config",
+        "responseMode": "lastNode",
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Dossier ophalen",
+          "path": "mendrix-dossier"
+        }
+      }
+    },
+    {
+      "id": "7886761c-56bb-4d32-ab33-57a278eda3b8",
+      "name": "Configuratie",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
       "position": [
         220,
         0
-      ]
-    },
-    {
+      ],
       "parameters": {
-        "url": "={{ $('Config').item.json.baseUrl }}/orders",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "sendQuery": true,
-        "queryParameters": {
-          "parameters": [
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
             {
-              "name": "={{ $json.searchParam }}",
-              "value": "={{ $json.searchValue }}"
+              "id": "base",
+              "name": "restBaseUrl",
+              "value": "https://test.roemaat.nl:38001/api",
+              "type": "string"
+            },
+            {
+              "id": "ord",
+              "name": "ordernummer",
+              "value": "={{ String($json.ordernummer ?? \"\").trim() }}",
+              "type": "string"
             }
           ]
-        },
-        "options": {
-          "allowUnauthorizedCerts": true
         }
-      },
-      "id": "58d713f8-3d9e-49e4-a2ba-6adae855d113",
-      "name": "Order zoeken",
+      }
+    },
+    {
+      "id": "d833719d-e957-49a4-8098-f56a5c8bf260",
+      "name": "Dossier downloaden (zip)",
       "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
+      "typeVersion": 4.5,
       "position": [
         440,
         0
       ],
+      "onError": "continueErrorOutput",
       "credentials": {
-        "httpHeaderAuth": {
+        "httpTemplatedCustomAuth": {
           "id": "",
-          "name": "MendriX API token"
+          "name": "MendriX Custom Link Bearer (test)"
         }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Normaliseer de zoekresultaten en kies de order(s) die exact matchen.\nconst data = $input.first().json;\nconst list = Array.isArray(data) ? data\n  : (data.items || data.data || data.results || data.value || data.orders || [data]);\nconst wanted = String($('Config').first().json.searchValue).toLowerCase();\nconst keys = ['id','orderId','orderNumber','number','orderNo','reference','orderReference','customerReference','externalReference'];\nconst exact = list.filter(o => keys.some(k => o[k] != null && String(o[k]).toLowerCase() === wanted));\nconst orders = exact.length ? exact : list;\nif (!orders.length) throw new Error('Geen order gevonden voor ' + wanted);\nreturn orders.map(o => ({ json: {\n  orderId: o.id ?? o.orderId ?? o.Id,\n  orderNumber: o.orderNumber ?? o.number ?? o.orderNo ?? o.id,\n}}));"
       },
-      "id": "ce15af97-9769-4161-b0fc-35ca415c386e",
-      "name": "Order kiezen",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        660,
-        0
-      ]
-    },
-    {
       "parameters": {
-        "url": "={{ $('Config').item.json.baseUrl }}/orders/{{ encodeURIComponent($json.orderId) }}/documents",
+        "method": "GET",
+        "url": "={{ $json.restBaseUrl }}/dossier/dossiers/order/{{ encodeURIComponent($json.ordernummer) }}/zipped",
         "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
-        "options": {
-          "allowUnauthorizedCerts": true
-        }
-      },
-      "id": "7afe878b-2913-482f-aa88-55fcbd47d276",
-      "name": "Dossier ophalen",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        880,
-        0
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "",
-          "name": "MendriX API token"
-        }
-      }
-    },
-    {
-      "parameters": {
-        "jsCode": "// Eén item per dossierbestand, met de URL om het te downloaden.\nconst base = $('Config').first().json.baseUrl;\nconst out = [];\n$input.all().forEach((item, i) => {\n  const order = $('Order kiezen').all()[i]?.json ?? $('Order kiezen').first().json;\n  const d = item.json;\n  const docs = Array.isArray(d) ? d : (d.items || d.data || d.documents || d.files || []);\n  for (const doc of docs) {\n    const id = doc.id ?? doc.documentId ?? doc.fileId;\n    let url = doc.downloadUrl || doc.url || doc.href || doc.contentUrl\n      || `${base}/orders/${encodeURIComponent(order.orderId)}/documents/${encodeURIComponent(id)}/content`;\n    if (!/^https?:/.test(url)) url = base + '/' + url.replace(/^\\//, '');\n    const name = String(doc.fileName || doc.filename || doc.name || doc.title || `document-${id}`);\n    out.push({ json: { orderNumber: order.orderNumber, fileName: name, url } });\n  }\n});\nif (!out.length) throw new Error('Geen bestanden in het dossier gevonden.');\nreturn out;"
-      },
-      "id": "58972687-7495-465f-b3c9-150598a23aae",
-      "name": "Per bestand",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        1100,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "url": "={{ $json.url }}",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpHeaderAuth",
+        "genericAuthType": "httpTemplatedCustomAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Accept",
+              "value": "*/*"
+            }
+          ]
+        },
         "options": {
           "allowUnauthorizedCerts": true,
+          "timeout": 30000,
           "response": {
             "response": {
               "responseFormat": "file",
@@ -174,156 +103,100 @@
             }
           }
         }
-      },
-      "id": "94da8767-9cc5-4e02-aa4a-16867cb9e661",
-      "name": "Bestand downloaden",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.2,
-      "position": [
-        1320,
-        0
-      ],
-      "credentials": {
-        "httpHeaderAuth": {
-          "id": "",
-          "name": "MendriX API token"
-        }
       }
     },
     {
-      "parameters": {
-        "jsCode": "// Alle bestanden op één item zetten zodat ze samen gezipt kunnen worden.\nconst binary = {};\nconst seen = {};\n$input.all().forEach((item, i) => {\n  const meta = $('Per bestand').all()[i].json;\n  let name = `${meta.orderNumber}/${meta.fileName}`;\n  seen[name] = (seen[name] || 0) + 1;\n  if (seen[name] > 1) name = name.replace(/(\\.[^.\\/]*)?$/, ` (${seen[name] - 1})$1`);\n  binary[`file_${i}`] = { ...item.binary.data, fileName: name };\n});\nreturn [{ json: { count: Object.keys(binary).length }, binary }];"
-      },
-      "id": "b62a7428-b4ad-4937-9ab2-c1101a081954",
-      "name": "Bundelen",
+      "id": "b0e0bcd2-d2ab-4f7f-aa58-a9e2f9b7c5ff",
+      "name": "Zip benoemen",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        1540,
-        0
-      ]
+        660,
+        -100
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const nr = $('Configuratie').first().json.ordernummer;\nreturn $input.all().map(item => {\n  if (item.binary && item.binary.data) {\n    item.binary.data.fileName = `dossier_order_${nr}.zip`;\n    item.binary.data.mimeType = 'application/zip';\n    item.binary.data.fileExtension = 'zip';\n  }\n  return { json: { ordernummer: nr }, binary: item.binary };\n});"
+      }
     },
     {
-      "parameters": {
-        "operation": "compress",
-        "binaryPropertyName": "={{ Object.keys($binary).join(',') }}",
-        "fileName": "={{ 'order-' + $('Config').first().json.searchValue + '.zip' }}",
-        "binaryPropertyOutput": "data"
-      },
-      "id": "d64937ee-fc32-4ec4-8186-7b6d00987a8e",
-      "name": "Zip maken",
-      "type": "n8n-nodes-base.compression",
-      "typeVersion": 1.1,
-      "position": [
-        1760,
-        0
-      ]
-    },
-    {
-      "parameters": {
-        "respondWith": "binary",
-        "options": {}
-      },
-      "id": "425363f4-edc0-4356-878e-1c449e15b526",
+      "id": "3e5525ff-7e97-4a62-ae58-6b7e3443faa0",
       "name": "Zip teruggeven",
-      "type": "n8n-nodes-base.respondToWebhook",
-      "typeVersion": 1.1,
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
       "position": [
-        1980,
-        0
-      ]
+        880,
+        -100
+      ],
+      "webhookId": "dcc39dcb-7d08-4589-a3bc-f581a9c8eee8",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "returnBinary",
+        "completionTitle": "Dossier gevonden",
+        "completionMessage": "=De bestanden van order {{ $json.ordernummer }} worden gedownload als zip.",
+        "inputDataFieldName": "data"
+      }
+    },
+    {
+      "id": "e2266820-21b2-42db-9079-097682f03dce",
+      "name": "Foutmelding tonen",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        660,
+        120
+      ],
+      "webhookId": "58a09de4-da0e-45d5-a7a5-21d834ff0af0",
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Dossier niet opgehaald",
+        "completionMessage": "=Order {{ $('Configuratie').first().json.ordernummer }}: {{ $json.error?.message ?? $json.message ?? 'onbekende fout' }}"
+      }
     }
   ],
   "connections": {
-    "Formulier": {
+    "Ordernummer invullen": {
       "main": [
         [
           {
-            "node": "Config",
+            "node": "Configuratie",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Config": {
+    "Configuratie": {
       "main": [
         [
           {
-            "node": "Order zoeken",
+            "node": "Dossier downloaden (zip)",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Order zoeken": {
+    "Dossier downloaden (zip)": {
       "main": [
         [
           {
-            "node": "Order kiezen",
+            "node": "Zip benoemen",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Foutmelding tonen",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Order kiezen": {
-      "main": [
-        [
-          {
-            "node": "Dossier ophalen",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Dossier ophalen": {
-      "main": [
-        [
-          {
-            "node": "Per bestand",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Per bestand": {
-      "main": [
-        [
-          {
-            "node": "Bestand downloaden",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bestand downloaden": {
-      "main": [
-        [
-          {
-            "node": "Bundelen",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Bundelen": {
-      "main": [
-        [
-          {
-            "node": "Zip maken",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Zip maken": {
+    "Zip benoemen": {
       "main": [
         [
           {
