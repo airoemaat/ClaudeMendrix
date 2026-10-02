@@ -50,7 +50,7 @@
             {
               "id": "base",
               "name": "restBaseUrl",
-              "value": "https://test.roemaat.nl:38001/api",
+              "value": "http://test.roemaat.nl:38000/api",
               "type": "string"
             },
             {

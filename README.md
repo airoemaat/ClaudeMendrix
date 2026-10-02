@@ -21,9 +21,9 @@ Dit geeft het hele dossier terug als één zip.
 
 - De n8n-workflow staat in n8n Cloud (`roemaat.app.n8n.cloud`) en gebruikt de credential
   **MendriX Custom Link Bearer (test)**.
-- **n8n Cloud kan `test.roemaat.nl:38001` (en `:38000`) op dit moment niet bereiken**:
+- **n8n Cloud kan `test.roemaat.nl:38000` (en `:38001`) op dit moment niet bereiken**:
   verbindingen lopen op een time-out. SOAP op poort 5564 werkt wel. Zet in de firewall
-  poort 38001 open voor de uitgaande IP-adressen van n8n Cloud. Daarna werkt de workflow
+  poort 38000 open voor de uitgaande IP-adressen van n8n Cloud. Daarna werkt de workflow
   zonder verdere aanpassingen.
 - **Zoeken op orderreferentie** zit er nog niet in. Het REST-endpoint om een order op
   referentie te zoeken is nog niet bevestigd, en de SOAP Custom Link kan niet op

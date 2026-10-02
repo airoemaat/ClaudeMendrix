@@ -32,7 +32,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 
 DEFAULTS = {
-    "MENDRIX_BASE_URL": "https://test.roemaat.nl:38001/api",
+    "MENDRIX_BASE_URL": "http://test.roemaat.nl:38000/api",
     "MENDRIX_TOKEN": "",
     # Leeg = token direct als header meesturen. Gevuld = token eerst inwisselen
     # voor een JWT bij de account service (POST naar deze URL).
