@@ -3,14 +3,15 @@
 Vul een **ordernummer** in en download alle bestanden uit het orderdossier via de
 [MendriX REST API](https://developers.mendrix.nl/rest-api/reference/).
 
-Gebruikt endpoint:
+Gebruikte endpoints (MendriX REST API):
 
 ```
-GET {base}/dossier/dossiers/order/{ordernummer}/zipped
-Authorization: Bearer <API-token>
+POST {base}/account/login-api-token        body {"token": "<API-token>"}  -> data.items[0].access
+GET  {base}/dossier/dossiers/orders/{id}/zipped   Authorization: Bearer <access>
 ```
 
-Dit geeft het hele dossier terug als één zip.
+Stap 1 wisselt het API-token uit de TMS in voor een kortlevend access-JWT; stap 2
+geeft het hele orderdossier terug als zip. `{id}` is het order-id.
 
 | Variant | Wat je krijgt |
 |---|---|
@@ -19,22 +20,18 @@ Dit geeft het hele dossier terug als één zip.
 
 ## Status
 
-- De n8n-workflow staat in n8n Cloud (`roemaat.app.n8n.cloud`) en gebruikt de credential
-  **MendriX Custom Link Bearer (test)**.
-- **n8n Cloud kan `test.roemaat.nl:38000` (en `:38001`) op dit moment niet bereiken**:
-  verbindingen lopen op een time-out. SOAP op poort 5564 werkt wel. Zet in de firewall
-  poort 38000 open voor de uitgaande IP-adressen van n8n Cloud. Daarna werkt de workflow
-  zonder verdere aanpassingen.
-- **Zoeken op orderreferentie** zit er nog niet in. Het REST-endpoint om een order op
-  referentie te zoeken is nog niet bevestigd, en de SOAP Custom Link kan niet op
-  referentie filteren. Zodra de REST API bereikbaar is, kan dat endpoint uit de
-  OpenAPI-spec worden gehaald (`python mendrix_files.py discover`).
+- Werkend getest op 2 oktober 2026 met order 1402685 (zip van 113 kB) vanuit n8n Cloud
+  tegen `http://test.roemaat.nl:38000/api`. Het uitgaande IP van n8n Cloud
+  (20.218.174.14) staat op de whitelist.
+- **Zoeken op orderreferentie** zit er nog niet in; daarvoor is het order-zoekendpoint
+  uit de API-referentie nodig.
+- Poort 38000 is onversleuteld (http): het API-token en het access-JWT gaan leesbaar
+  over internet. Gebruik bij voorkeur https.
 
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
-2. Controleer of de node **Dossier downloaden (zip)** de credential
-   `MendriX Custom Link Bearer (test)` gebruikt (header `Authorization: Bearer <token>`).
+2. Vul in de node **Configuratie** het MendriX API-token in bij `apiToken`.
 3. Zet de workflow actief en open de productie-URL van het formulier
    (pad `mendrix-dossier`).
 

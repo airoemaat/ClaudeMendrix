@@ -34,14 +34,14 @@ HERE = Path(__file__).resolve().parent
 DEFAULTS = {
     "MENDRIX_BASE_URL": "http://test.roemaat.nl:38000/api",
     "MENDRIX_TOKEN": "",
-    # Leeg = token direct als header meesturen. Gevuld = token eerst inwisselen
-    # voor een JWT bij de account service (POST naar deze URL).
-    "MENDRIX_AUTH_URL": "",
+    # API-token inwisselen voor een kortlevend access-JWT (POST {"token": ...}).
+    # Relatief aan MENDRIX_BASE_URL of een volledige URL. Leeg = token direct als header.
+    "MENDRIX_AUTH_URL": "/account/login-api-token",
     "MENDRIX_AUTH_HEADER": "Authorization",
     "MENDRIX_AUTH_SCHEME": "Bearer",
     # Endpoint-paden, relatief aan MENDRIX_BASE_URL.
     # Bevestigd: het hele orderdossier als zip. Leeg laten = per document downloaden.
-    "MENDRIX_DOSSIER_ZIP_PATH": "/dossier/dossiers/order/{order_number}/zipped",
+    "MENDRIX_DOSSIER_ZIP_PATH": "/dossier/dossiers/orders/{order_number}/zipped",
     # Nog niet bevestigd (controleer met `discover`): order zoeken en losse documenten.
     "MENDRIX_ORDER_SEARCH_PATH": "/orders",
     "MENDRIX_ORDER_NUMBER_PARAM": "orderNumber",
@@ -134,14 +134,17 @@ class MendrixClient:
 
     def _exchange_token(self, api_token):
         raw, _ = self._request(
-            self.cfg["MENDRIX_AUTH_URL"], method="POST",
-            body={"token": api_token, "apiToken": api_token}, auth=False,
+            self._url(self.cfg["MENDRIX_AUTH_URL"]), method="POST",
+            body={"token": api_token}, auth=False,
         )
         try:
             data = json.loads(raw)
         except ValueError:
             return raw.decode("utf-8").strip().strip('"')
-        for key in ("access_token", "accessToken", "token", "jwt", "idToken"):
+        items = data.get("data", {}).get("items") if isinstance(data, dict) else None
+        if items and isinstance(items[0], dict) and items[0].get("access"):
+            return items[0]["access"]
+        for key in ("access", "access_token", "accessToken", "token", "jwt"):
             if isinstance(data, dict) and data.get(key):
                 return data[key]
         raise MendrixError(f"Geen JWT gevonden in antwoord van account service: {data}")

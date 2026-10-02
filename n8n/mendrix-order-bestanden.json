@@ -58,6 +58,12 @@
               "name": "ordernummer",
               "value": "={{ String($json.ordernummer ?? \"\").trim() }}",
               "type": "string"
+            },
+            {
+              "id": "tok",
+              "name": "apiToken",
+              "value": "<VUL HIER HET MENDRIX API-TOKEN IN>",
+              "type": "string"
             }
           ]
         }
@@ -69,24 +75,21 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        440,
-        0
+        660,
+        -220
       ],
       "onError": "continueErrorOutput",
-      "credentials": {
-        "httpTemplatedCustomAuth": {
-          "id": "",
-          "name": "MendriX Custom Link Bearer (test)"
-        }
-      },
       "parameters": {
         "method": "GET",
-        "url": "={{ $json.restBaseUrl }}/dossier/dossiers/order/{{ encodeURIComponent($json.ordernummer) }}/zipped",
-        "authentication": "genericCredentialType",
-        "genericAuthType": "httpTemplatedCustomAuth",
+        "url": "={{ $('Configuratie').first().json.restBaseUrl }}/dossier/dossiers/orders/{{ encodeURIComponent($('Configuratie').first().json.ordernummer) }}/zipped",
+        "authentication": "none",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.data.items[0].access }}"
+            },
             {
               "name": "Accept",
               "value": "*/*"
@@ -111,12 +114,12 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        660,
-        -100
+        880,
+        -220
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "const nr = $('Configuratie').first().json.ordernummer;\nreturn $input.all().map(item => {\n  if (item.binary && item.binary.data) {\n    item.binary.data.fileName = `dossier_order_${nr}.zip`;\n    item.binary.data.mimeType = 'application/zip';\n    item.binary.data.fileExtension = 'zip';\n  }\n  return { json: { ordernummer: nr }, binary: item.binary };\n});"
+        "jsCode": "// MendriX geeft het dossier als bestand terug; volgens de docs kan het ook JSON met { buffer, contentType } zijn.\nconst nr = $('Configuratie').first().json.ordernummer;\nconst item = $input.first();\nconst fileName = `dossier_order_${nr}.zip`;\n\nif (item.binary && item.binary.data) {\n  const raw = await this.helpers.getBinaryDataBuffer(0, 'data');\n  const text = raw.subarray(0, 1).toString();\n  if (text !== '{') {\n    item.binary.data.fileName = fileName;\n    item.binary.data.mimeType = 'application/zip';\n    item.binary.data.fileExtension = 'zip';\n    return [{ json: { ordernummer: nr, grootte: raw.length }, binary: { data: item.binary.data } }];\n  }\n  item.json = JSON.parse(raw.toString('utf8'));\n}\n\nconst entry = item.json?.data?.items?.[0];\nif (!entry || entry.buffer == null) {\n  throw new Error('Geen bestand in antwoord van MendriX: ' + JSON.stringify(item.json).slice(0, 300));\n}\nconst bytes = typeof entry.buffer === 'string'\n  ? Buffer.from(entry.buffer, 'base64')\n  : Buffer.from(entry.buffer.data ?? entry.buffer);\nconst binary = await this.helpers.prepareBinaryData(bytes, fileName, entry.contentType || 'application/zip');\nreturn [{ json: { ordernummer: nr, grootte: bytes.length }, binary: { data: binary } }];"
       }
     },
     {
@@ -125,8 +128,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        880,
-        -100
+        1100,
+        -220
       ],
       "webhookId": "dcc39dcb-7d08-4589-a3bc-f581a9c8eee8",
       "parameters": {
@@ -143,8 +146,8 @@
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        660,
-        120
+        880,
+        0
       ],
       "webhookId": "58a09de4-da0e-45d5-a7a5-21d834ff0af0",
       "parameters": {
@@ -152,6 +155,28 @@
         "respondWith": "text",
         "completionTitle": "Dossier niet opgehaald",
         "completionMessage": "=Order {{ $('Configuratie').first().json.ordernummer }}: {{ $json.error?.message ?? $json.message ?? 'onbekende fout' }}"
+      }
+    },
+    {
+      "id": "8a9a90e5-0f08-4149-a7d1-c2beefbcb856",
+      "name": "Inloggen (API-token)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        440,
+        -220
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.restBaseUrl }}/account/login-api-token",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ token: $json.apiToken }) }}",
+        "options": {
+          "timeout": 30000
+        }
       }
     }
   ],
@@ -171,7 +196,7 @@
       "main": [
         [
           {
-            "node": "Dossier downloaden (zip)",
+            "node": "Inloggen (API-token)",
             "type": "main",
             "index": 0
           }
@@ -201,6 +226,24 @@
         [
           {
             "node": "Zip teruggeven",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Inloggen (API-token)": {
+      "main": [
+        [
+          {
+            "node": "Dossier downloaden (zip)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Foutmelding tonen",
             "type": "main",
             "index": 0
           }
