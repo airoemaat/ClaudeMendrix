@@ -28,6 +28,22 @@ geeft het hele orderdossier terug als zip. `{id}` is het order-id.
 - Poort 38000 is onversleuteld (http): het API-token en het access-JWT gaan leesbaar
   over internet. Gebruik bij voorkeur https.
 
+## Konimpex: dossiers op Ship ID
+
+n8n-workflow **"MendriX - Konimpex dossiers op Ship ID (formulier)"**
+(bron: `n8n/konimpex-shipid.workflow.ts`, n8n Workflow SDK):
+
+1. Formulier: Ship ID (staat bij laden/lossen in "Uw kenmerk") en optioneel een startdatum
+   (standaard 180 dagen terug).
+2. SOAP Custom Link: order-IDs van relatie 56190 (Konimpex B.V.) binnen de periode
+   (`EoCustomLinkRequestOrdersNormalIds`), daarna de volledige orders per 50
+   (`EoCustomLinkRequestOrdersNormal`, `Nested=1`).
+3. Orders waarvan een taak `ReferenceYour` gelijk aan het Ship ID heeft, worden geselecteerd.
+4. REST: per order `GET /dossier/dossiers/orders/{id}/zipped`; alles samen in
+   `Konimpex_ShipID_<id>.zip` (met per order `order_<id>.zip`).
+
+Vul in de node **Configuratie** het API-token en de SOAP-gebruikersnaam/-wachtwoord in.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
