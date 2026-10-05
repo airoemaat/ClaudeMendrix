@@ -40,12 +40,19 @@ n8n-workflow **"MendriX - Konimpex dossiers op Ship ID (formulier)"**
    orders per 50 (`RequestOrdersNormal`, `Nested=True`). Let op: `ClientNo` is de interne
    klant-sleutel (736), niet het relatienummer (56190). Booleans zijn `True`/`False`.
 3. Orders waarvan een taak `ReferenceYour` gelijk aan het Ship ID heeft, worden geselecteerd.
-4. REST: per order `GET /dossier/dossiers/orders/{id}/zipped`; alles samen in
-   `Konimpex_ShipID_<id>.zip` (met per order `order_<id>.zip`).
+4. REST: per order `GET /dossier/dossiers/orders/{id}` (bestandslijst); alleen bestanden
+   waarvan de naam met `CMR` begint (ook in submappen) worden opgehaald via
+   `GET /dossier/dossiers/orders/{id}/contents/{pad}`.
+5. Alle losse CMR's samen in `Konimpex_CMR_ShipID_<id>.zip`, als `<order-id>_<bestandsnaam>`.
+
+De workflow in n8n heet nu **"MendriX - Konimpex CMR's op Ship ID (formulier)"**.
+`n8n/konimpex-shipid.workflow.ts` bevat nog de eerdere variant (hele dossiers); de CMR-stappen
+zijn daarna in n8n toegevoegd.
 
 Vul in de node **Configuratie** het API-token en de SOAP-gebruikersnaam/-wachtwoord in.
 
-Getest op 5 oktober 2026: Ship ID 2026704 → order 1397193, Ship ID 2026731 → order 1397199.
+Getest op 5 oktober 2026: Ship ID 2026704 → order 1397193, Ship ID 2026731 → order 1397199,
+Ship ID 123456 → 3 orders, 3 CMR's in één zip (335 kB).
 Een te ruime periode laat n8n Cloud vastlopen op geheugen (elke order is ~50 kB XML).
 
 ## n8n
