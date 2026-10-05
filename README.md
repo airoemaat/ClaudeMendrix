@@ -34,15 +34,19 @@ n8n-workflow **"MendriX - Konimpex dossiers op Ship ID (formulier)"**
 (bron: `n8n/konimpex-shipid.workflow.ts`, n8n Workflow SDK):
 
 1. Formulier: Ship ID (staat bij laden/lossen in "Uw kenmerk") en optioneel een startdatum
-   (standaard 180 dagen terug).
-2. SOAP Custom Link: order-IDs van relatie 56190 (Konimpex B.V.) binnen de periode
-   (`EoCustomLinkRequestOrdersNormalIds`), daarna de volledige orders per 50
-   (`EoCustomLinkRequestOrdersNormal`, `Nested=1`).
+   (standaard 60 dagen terug; einddatum 30 dagen vooruit).
+2. SOAP Custom Link: order-IDs van Konimpex B.V. binnen de periode
+   (`RequestOrdersNormalIds`, `ClientNo=736`, `IgnShowAlways=True`), daarna de volledige
+   orders per 50 (`RequestOrdersNormal`, `Nested=True`). Let op: `ClientNo` is de interne
+   klant-sleutel (736), niet het relatienummer (56190). Booleans zijn `True`/`False`.
 3. Orders waarvan een taak `ReferenceYour` gelijk aan het Ship ID heeft, worden geselecteerd.
 4. REST: per order `GET /dossier/dossiers/orders/{id}/zipped`; alles samen in
    `Konimpex_ShipID_<id>.zip` (met per order `order_<id>.zip`).
 
 Vul in de node **Configuratie** het API-token en de SOAP-gebruikersnaam/-wachtwoord in.
+
+Getest op 5 oktober 2026: Ship ID 2026704 → order 1397193, Ship ID 2026731 → order 1397199.
+Een te ruime periode laat n8n Cloud vastlopen op geheugen (elke order is ~50 kB XML).
 
 ## n8n
 

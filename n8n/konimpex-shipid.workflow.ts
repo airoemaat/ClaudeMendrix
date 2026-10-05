@@ -13,7 +13,7 @@ const form = trigger({
       formFields: {
         values: [
           { fieldLabel: 'Ship ID', fieldName: 'shipId', fieldType: 'text', placeholder: 'Ship ID uit "Uw kenmerk"', requiredField: true },
-          { fieldLabel: 'Zoeken vanaf (optioneel, standaard 180 dagen terug)', fieldName: 'vanaf', fieldType: 'date', requiredField: false }
+          { fieldLabel: 'Zoeken vanaf (optioneel, standaard 60 dagen terug)', fieldName: 'vanaf', fieldType: 'date', requiredField: false }
         ]
       },
       responseMode: 'lastNode',
@@ -39,10 +39,10 @@ const config = node({
           { id: 'tok', name: 'apiToken', value: 'VUL_IN_MENDRIX_API_TOKEN', type: 'string' },
           { id: 'su', name: 'soapUser', value: 'VUL_IN_SOAP_GEBRUIKERSNAAM', type: 'string' },
           { id: 'sp', name: 'soapPwd', value: 'VUL_IN_SOAP_WACHTWOORD', type: 'string' },
-          { id: 'cl', name: 'clientNo', value: '56190', type: 'string' },
+          { id: 'cl', name: 'clientNo', value: '736', type: 'string' },
           { id: 'ship', name: 'shipId', value: expr('{{ String($json.shipId ?? "").trim() }}'), type: 'string' },
-          { id: 'pb', name: 'periodBegin', value: expr("{{ ($json.vanaf ? DateTime.fromISO($json.vanaf) : $now.minus(180, 'days')).startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ss\") }}"), type: 'string' },
-          { id: 'pe', name: 'periodEnd', value: expr("{{ $now.plus(90, 'days').endOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ss\") }}"), type: 'string' }
+          { id: 'pb', name: 'periodBegin', value: expr("{{ ($json.vanaf ? DateTime.fromISO($json.vanaf) : $now.minus(60, 'days')).startOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ss\") }}"), type: 'string' },
+          { id: 'pe', name: 'periodEnd', value: expr("{{ $now.plus(30, 'days').endOf('day').toFormat(\"yyyy-MM-dd'T'HH:mm:ss\") }}"), type: 'string' }
         ]
       }
     }
@@ -94,7 +94,7 @@ const soapIdsRequest = node({
     position: [660, 0],
     parameters: {
       mode: 'runOnceForAllItems',
-      jsCode: "// Order-IDs van de relatie binnen de periode opvragen (Custom Link: EoCustomLinkRequestOrdersNormalIds).\nconst c = $('Configuratie').first().json;\nconst esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst inner = '<?xml version=\"1.0\" encoding=\"windows-1252\"?>' +\n  '<EoCustomLinkRequestOrdersNormalIds Type=\"TEoCustomLinkRequestOrdersNormalIds\">' +\n  '<Nested>0</Nested>' +\n  '<Filter Type=\"TEoFilterOrdersNormal\">' +\n  '<PeriodBegin>' + esc(c.periodBegin) + '</PeriodBegin>' +\n  '<PeriodEnd>' + esc(c.periodEnd) + '</PeriodEnd>' +\n  '<ClientNo>' + esc(c.clientNo) + '</ClientNo>' +\n  '<OperatorId>-1</OperatorId>' +\n  '</Filter></EoCustomLinkRequestOrdersNormalIds>';\nconst envelope = '<?xml version=\"1.0\" encoding=\"utf-8\"?>' +\n  '<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" SOAP-ENV:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">' +\n  '<SOAP-ENV:Header><h:TAuthenticationHeader xmlns:h=\"urn:UCoSoapDispatcherBase\">' +\n  '<UserName>' + esc(c.soapUser) + '</UserName><Password>' + esc(c.soapPwd) + '</Password>' +\n  '</h:TAuthenticationHeader></SOAP-ENV:Header>' +\n  '<SOAP-ENV:Body><m:ExecuteRequest xmlns:m=\"urn:UCoSoapDispatcherCustomLink-ICustomLinkSoap\">' +\n  '<ARequest xsi:type=\"xsd:string\">' + esc(inner) + '</ARequest>' +\n  '</m:ExecuteRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>';\nreturn [{ json: { soapEnvelope: envelope } }];"
+      jsCode: "// Order-IDs van de klant binnen de periode opvragen (Custom Link: RequestOrdersNormalIds).\n// ClientNo is de interne database-sleutel van de klant (Konimpex: 736), niet het relatienummer (56190).\nconst c = $('Configuratie').first().json;\nconst esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst inner = '<?xml version=\"1.0\" encoding=\"windows-1252\"?>' +\n  '<EoCustomLinkRequestOrdersNormalIds Type=\"TEoCustomLinkRequestOrdersNormalIds\">' +\n  '<Nested>False</Nested>' +\n  '<Filter Type=\"TEoFilterOrdersNormal\">' +\n  '<PeriodBegin>' + esc(c.periodBegin) + '</PeriodBegin>' +\n  '<PeriodEnd>' + esc(c.periodEnd) + '</PeriodEnd>' +\n  '<ClientNo>' + esc(c.clientNo) + '</ClientNo>' +\n  '<OperatorId>-1</OperatorId>' +\n  '<IgnShowAlways>True</IgnShowAlways>' +\n  '</Filter></EoCustomLinkRequestOrdersNormalIds>';\nconst envelope = '<?xml version=\"1.0\" encoding=\"utf-8\"?>' +\n  '<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" SOAP-ENV:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">' +\n  '<SOAP-ENV:Header><h:TAuthenticationHeader xmlns:h=\"urn:UCoSoapDispatcherBase\">' +\n  '<UserName>' + esc(c.soapUser) + '</UserName><Password>' + esc(c.soapPwd) + '</Password>' +\n  '</h:TAuthenticationHeader></SOAP-ENV:Header>' +\n  '<SOAP-ENV:Body><m:ExecuteRequest xmlns:m=\"urn:UCoSoapDispatcherCustomLink-ICustomLinkSoap\">' +\n  '<ARequest xsi:type=\"xsd:string\">' + esc(inner) + '</ARequest>' +\n  '</m:ExecuteRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>';\nreturn [{ json: { soapEnvelope: envelope } }];"
     }
   },
   output: [{ soapEnvelope: '<xml/>' }]
@@ -116,7 +116,7 @@ const soapIds = node({
       contentType: 'raw',
       rawContentType: 'text/xml; charset=utf-8',
       body: expr('{{ $json.soapEnvelope }}'),
-      options: { timeout: 120000, response: { response: { responseFormat: 'text', outputPropertyName: 'data' } } }
+      options: { timeout: 120000 }
     }
   },
   output: [{ data: '<soap/>' }]
@@ -130,7 +130,7 @@ const soapOrdersRequest = node({
     position: [1100, 0],
     parameters: {
       mode: 'runOnceForAllItems',
-      jsCode: "// SOAP-antwoord uitpakken, order-IDs lezen en per 50 IDs een verzoek voor de volledige orders maken.\nconst c = $('Configuratie').first().json;\nconst unescapeXml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\").replace(/&amp;/g, '&');\nconst esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst raw = String($input.first().json.data ?? '');\nconst ret = raw.match(/<return[^>]*>([\\s\\S]*?)<\\/return>/);\nif (!ret) {\n  const fault = raw.match(/<faultstring[^>]*>([\\s\\S]*?)<\\/faultstring>/);\n  throw new Error('Geen geldig SOAP-antwoord. ' + (fault ? 'SOAP fault: ' + fault[1] : raw.slice(0, 300)));\n}\nconst payload = unescapeXml(ret[1]);\nif (payload.includes('TEoCustomLinkException')) {\n  const msg = (payload.match(/<ExceptionMessage>([\\s\\S]*?)<\\/ExceptionMessage>/) || [])[1] || payload.slice(0, 300);\n  throw new Error('MendriX SOAP-fout: ' + msg);\n}\nconst ids = [...new Set([...payload.matchAll(/<EoKeyInt[^>]*>\\s*<Id>(-?\\d+)<\\/Id>/g)].map(m => m[1]))];\nconst chunks = [];\nfor (let i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));\nif (!chunks.length) chunks.push(['-1']);\nreturn chunks.map((chunk, n) => {\n  const inner = '<?xml version=\"1.0\" encoding=\"windows-1252\"?>' +\n    '<EoCustomLinkRequestOrdersNormal Type=\"TEoCustomLinkRequestOrdersNormal\">' +\n    '<Nested>1</Nested><Filter Type=\"TEoFilterOrdersNormal\">' +\n    '<KeysExplicitAsCsv>' + chunk.join(',') + '</KeysExplicitAsCsv>' +\n    '</Filter></EoCustomLinkRequestOrdersNormal>';\n  const envelope = '<?xml version=\"1.0\" encoding=\"utf-8\"?>' +\n    '<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" SOAP-ENV:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">' +\n    '<SOAP-ENV:Header><h:TAuthenticationHeader xmlns:h=\"urn:UCoSoapDispatcherBase\">' +\n    '<UserName>' + esc(c.soapUser) + '</UserName><Password>' + esc(c.soapPwd) + '</Password>' +\n    '</h:TAuthenticationHeader></SOAP-ENV:Header>' +\n    '<SOAP-ENV:Body><m:ExecuteRequest xmlns:m=\"urn:UCoSoapDispatcherCustomLink-ICustomLinkSoap\">' +\n    '<ARequest xsi:type=\"xsd:string\">' + esc(inner) + '</ARequest>' +\n    '</m:ExecuteRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>';\n  return { json: { batch: n + 1, aantalIdsTotaal: ids.length, soapEnvelope: envelope } };\n});"
+      jsCode: "// SOAP-antwoord uitpakken, order-IDs lezen en per 50 IDs een verzoek voor de volledige orders maken.\nconst c = $('Configuratie').first().json;\nconst unescapeXml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '\"').replace(/&apos;/g, \"'\").replace(/&amp;/g, '&');\nconst esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst raw = String($input.first().json.data ?? '');\nconst ret = raw.match(/<return[^>]*>([\\s\\S]*?)<\\/return>/);\nif (!ret) {\n  const fault = raw.match(/<faultstring[^>]*>([\\s\\S]*?)<\\/faultstring>/);\n  throw new Error('Geen geldig SOAP-antwoord. ' + (fault ? 'SOAP fault: ' + fault[1] : raw.slice(0, 300)));\n}\nconst payload = unescapeXml(ret[1]);\nif (payload.includes('TEoCustomLinkException')) {\n  const msg = (payload.match(/<ExceptionMessage>([\\s\\S]*?)<\\/ExceptionMessage>/) || [])[1] || payload.slice(0, 300);\n  throw new Error('MendriX SOAP-fout: ' + msg);\n}\nconst ids = [...new Set([...payload.matchAll(/<EoKeyInt[^>]*>\\s*<Id>(-?\\d+)<\\/Id>/g)].map(m => m[1]))];\nconst chunks = [];\nfor (let i = 0; i < ids.length; i += 50) chunks.push(ids.slice(i, i + 50));\nif (!chunks.length) chunks.push(['-1']);\nreturn chunks.map((chunk, n) => {\n  const inner = '<?xml version=\"1.0\" encoding=\"windows-1252\"?>' +\n    '<EoCustomLinkRequestOrdersNormal Type=\"TEoCustomLinkRequestOrdersNormal\">' +\n    '<Nested>True</Nested><Filter Type=\"TEoFilterOrdersNormal\">' +\n    '<KeysExplicitAsCsv>' + chunk.join(',') + '</KeysExplicitAsCsv>' +\n    '</Filter></EoCustomLinkRequestOrdersNormal>';\n  const envelope = '<?xml version=\"1.0\" encoding=\"utf-8\"?>' +\n    '<SOAP-ENV:Envelope xmlns:SOAP-ENV=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" SOAP-ENV:encodingStyle=\"http://schemas.xmlsoap.org/soap/encoding/\">' +\n    '<SOAP-ENV:Header><h:TAuthenticationHeader xmlns:h=\"urn:UCoSoapDispatcherBase\">' +\n    '<UserName>' + esc(c.soapUser) + '</UserName><Password>' + esc(c.soapPwd) + '</Password>' +\n    '</h:TAuthenticationHeader></SOAP-ENV:Header>' +\n    '<SOAP-ENV:Body><m:ExecuteRequest xmlns:m=\"urn:UCoSoapDispatcherCustomLink-ICustomLinkSoap\">' +\n    '<ARequest xsi:type=\"xsd:string\">' + esc(inner) + '</ARequest>' +\n    '</m:ExecuteRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>';\n  return { json: { batch: n + 1, aantalIdsTotaal: ids.length, soapEnvelope: envelope } };\n});"
     }
   },
   output: [{ batch: 1, aantalIdsTotaal: 10, soapEnvelope: '<xml/>' }]
@@ -152,7 +152,7 @@ const soapOrders = node({
       contentType: 'raw',
       rawContentType: 'text/xml; charset=utf-8',
       body: expr('{{ $json.soapEnvelope }}'),
-      options: { timeout: 120000, batching: { batch: { batchSize: 1, batchInterval: 0 } }, response: { response: { responseFormat: 'text', outputPropertyName: 'data' } } }
+      options: { timeout: 120000, batching: { batch: { batchSize: 1, batchInterval: 0 } } }
     }
   },
   output: [{ data: '<soap/>' }]
