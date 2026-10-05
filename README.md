@@ -55,6 +55,25 @@ Getest op 5 oktober 2026: Ship ID 2026704 → order 1397193, Ship ID 2026731 →
 Ship ID 123456 → 3 orders, 3 CMR's in één zip (335 kB).
 Een te ruime periode laat n8n Cloud vastlopen op geheugen (elke order is ~50 kB XML).
 
+## Konimpex CMR-API voor een eigen app
+
+n8n-workflow **"MendriX - Konimpex CMR's op Ship ID (API voor app)"**
+(bron: `n8n/konimpex-cmr-api.workflow.ts`). Zelfde stappen als hierboven, maar met een
+webhook in plaats van een formulier:
+
+```
+POST https://roemaat.app.n8n.cloud/webhook/konimpex-cmr
+Header: X-Api-Key: <sleutel uit n8n-credential "Konimpex CMR app - API-sleutel">
+Body:   {"shipId": "123456", "vanaf": "2026-08-01"}   (vanaf is optioneel)
+```
+
+| Status | Inhoud |
+|---|---|
+| 200 | `application/zip` met de CMR's; headers `Content-Disposition`, `X-Cmr-Count`, `X-Cmr-Orders` |
+| 400 | `{"error": "Vul een Ship ID in."}` |
+| 404 | `{"error": "..."}`: geen orders of geen CMR gevonden |
+| 502 | `{"error": "..."}`: fout bij MendriX |
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
