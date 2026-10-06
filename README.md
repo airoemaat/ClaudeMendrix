@@ -112,7 +112,10 @@ uit een echt `RequestClients`-antwoord (Konimpex, 6 oktober 2026). De dubbelcont
 getest (Konimpex wordt herkend, er wordt niets aangemaakt). Opslaan getest op 6 oktober 2026:
 "TEST Claude BV" → intern Id 3630, relatienummer 58482 (door MendriX gekozen); alle velden,
 inclusief laad- en losadres, kwamen terug zoals ingevuld. Betalingstermijn blijft 0 (geen formulierveld).
-De contactpersoon van het laad- en losadres heeft geen veld in `TEoClientMx`.
+Let op: `StoreClients` met een bestaand Id vervangt het **hele** record. Velden die je weglaat
+worden leeg (getest 6 oktober 2026; de documentatie zegt ten onrechte dat het samenvoegt).
+Bijwerken dus altijd volgens ophalen → aanpassen → volledig terugsturen.
+Onbekende elementen (bv. `AddressTaskPerson`) worden zonder foutmelding genegeerd.
 
 Uitvoerders: `RequestCharters` bestaat niet (`GetClass('TEoCustomLinkRequestCharters')=nil`);
 de juiste Custom Link-klasse moet nog uit de documentatie komen.
