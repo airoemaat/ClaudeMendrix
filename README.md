@@ -178,6 +178,10 @@ uitbesteders: `Courier`/`Extern` = True, `IsActive` = True, `VehicleNo` 133, `Ad
   aan het Id (gezien bij 2220 en 2228). Het 201-antwoord geeft daarom `nummer` = Id.
 - `StoreEmployees` schrijft het record zoals verstuurd: weggelaten velden worden leeg. Nooit een
   bestaande medewerker bijwerken zonder eerst het volledige record op te halen.
+- Handelsnr. en BTW nummer van een uitvoerder staan in MendriX op het medewerkerscherm, maar komen
+  niet terug in `RequestEmployees` (getest 6 oktober 2026: waarden ingevuld bij 2228, record kreeg
+  een nieuwe revisie, maar 123456/12345678 staan nergens in de XML). Via Custom Link dus niet te
+  lezen of te schrijven; zie ook de MendriX-documentatie (`GdxEoStructures.xsd`, `TEoEmployeeMx`).
 - De REST-API heeft geen medewerker-endpoints (geprobeerd: `/employee/employees`, `/operator/operators`, …).
 - Getest 6 oktober 2026: "TEST Claude Uitbesteder BV" → Id/nummer 2228; dubbelcontrole geeft 409.
 
