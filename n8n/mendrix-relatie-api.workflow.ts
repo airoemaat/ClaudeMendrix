@@ -49,25 +49,31 @@ const validate = node({
     position: [440, 0],
     parameters: {
       mode: 'runOnceForAllItems',
-      jsCode: `// JSON van de app ({ bedrijf, laadEnLosadres, administratie, relatienummer }) plat maken en controleren.
+      jsCode: `// JSON van de app plat maken en controleren.
+// soort "relatie" (standaard): { bedrijf, laadEnLosadres, administratie, relatienummer }
+// soort "uitvoerder":          { uitvoerder: { naam, adres, postcode, plaats, land, telefoon, email, btw, kvk } }
 const body = $('App-aanvraag (webhook)').first().json.body ?? {};
 const s = v => String(v ?? '').trim();
-const b = body.bedrijf ?? {}, l = body.laadEnLosadres ?? {}, a = body.administratie ?? {};
+const soort = s(body.soort).toLowerCase() === 'uitvoerder' ? 'uitvoerder' : 'relatie';
+const b = (soort === 'uitvoerder' ? body.uitvoerder : body.bedrijf) ?? {};
+const l = body.laadEnLosadres ?? {}, a = body.administratie ?? {};
 const d = {
+  soort,
   naam: s(b.naam), adres: s(b.adres), postcode: s(b.postcode).toUpperCase(), plaats: s(b.plaats),
   land: (s(b.land) || 'NL').toUpperCase(), telefoon: s(b.telefoon), mobiel: s(b.mobiel),
   email: s(b.email), contactpersoon: s(b.contactpersoon),
   laadNaam: s(l.naam), laadContact: s(l.contactpersoon), laadAdres: s(l.adres),
   laadPostcode: s(l.postcode).toUpperCase(), laadPlaats: s(l.plaats),
-  kvk: s(a.kvk).replace(/\\s/g, ''), btw: s(a.btw).replace(/\\s/g, '').toUpperCase(),
+  kvk: s(b.kvk ?? a.kvk).replace(/\\s/g, ''), btw: s(b.btw ?? a.btw).replace(/\\s/g, '').toUpperCase(),
   iban: s(a.iban).replace(/\\s/g, '').toUpperCase(), factuurEmail: s(a.factuurEmail),
   relatienummer: s(body.relatienummer)
 };
+const blok = soort === 'uitvoerder' ? 'uitvoerder' : 'bedrijf';
 const fouten = [];
-for (const [k, veld] of [['naam', 'bedrijf.naam'], ['adres', 'bedrijf.adres'], ['postcode', 'bedrijf.postcode'], ['plaats', 'bedrijf.plaats']]) {
-  if (!d[k]) fouten.push(veld + ' ontbreekt');
+for (const k of ['naam', 'adres', 'postcode', 'plaats']) {
+  if (!d[k]) fouten.push(blok + '.' + k + ' ontbreekt');
 }
-if (!/^[A-Z]{2}$/.test(d.land)) fouten.push('bedrijf.land moet een landcode van 2 letters zijn (bv. NL)');
+if (!/^[A-Z]{2}$/.test(d.land)) fouten.push(blok + '.land moet een landcode van 2 letters zijn (bv. NL)');
 if (d.laadAdres && (!d.laadPostcode || !d.laadPlaats)) fouten.push('laadEnLosadres: postcode en plaats zijn verplicht als er een adres is');
 return [{ json: { ok: fouten.length === 0, fouten, ...d } }];`
     }
@@ -439,15 +445,136 @@ const respondError = node({
   output: [{}]
 });
 
+const isUitvoerder = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Uitvoerder?',
+    position: [770, -100],
+    parameters: {
+      conditions: {
+        combinator: 'and',
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose', version: 2 },
+        conditions: [{ leftValue: expr('{{ $json.soort }}'), rightValue: 'uitvoerder', operator: { type: 'string', operation: 'equals' } }]
+      }
+    }
+  }
+});
+
+const createUitvoerder = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: {
+    name: 'Uitvoerder aanmaken',
+    position: [990, -400],
+    onError: 'continueErrorOutput',
+    parameters: {
+      mode: 'runOnceForAllItems',
+      jsCode: `// Uitvoerder (uitbesteder) aanmaken: in MendriX een medewerker met categorie (MarkChars) "u".
+// Standaardwaarden gelijk aan de bestaande uitbesteders: Courier/Extern = True, voertuig 133,
+// administratie 1. StoreEmployees schrijft het record zoals verstuurd (geen samenvoegen).
+const c = $('Configuratie').first().json;
+const d = $('Gegevens controleren').first().json;
+const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const unescapeXml = s => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&');
+const envelope = inner => '<?xml version="1.0" encoding="utf-8"?>' +
+  '<SOAP-ENV:Envelope xmlns:SOAP-ENV="http://schemas.xmlsoap.org/soap/envelope/" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" SOAP-ENV:encodingStyle="http://schemas.xmlsoap.org/soap/encoding/">' +
+  '<SOAP-ENV:Header><h:TAuthenticationHeader xmlns:h="urn:UCoSoapDispatcherBase">' +
+  '<UserName>' + esc(c.soapUser) + '</UserName><Password>' + esc(c.soapPwd) + '</Password>' +
+  '</h:TAuthenticationHeader></SOAP-ENV:Header>' +
+  '<SOAP-ENV:Body><m:ExecuteRequest xmlns:m="urn:UCoSoapDispatcherCustomLink-ICustomLinkSoap">' +
+  '<ARequest xsi:type="xsd:string">' + esc('<?xml version="1.0" encoding="windows-1252"?>' + inner) + '</ARequest>' +
+  '</m:ExecuteRequest></SOAP-ENV:Body></SOAP-ENV:Envelope>';
+const soap = async inner => {
+  const raw = String(await this.helpers.httpRequest({
+    method: 'POST', url: c.soapUrl, body: envelope(inner), timeout: 120000,
+    headers: { 'Content-Type': 'text/xml; charset=utf-8', SOAPAction: '"urn:UCoSoapDispatcherCustomLink-ICustomLinkSoap#ExecuteRequest"' }
+  }));
+  const ret = raw.match(/<return[^>]*>([\\s\\S]*?)<\\/return>/);
+  if (!ret) {
+    const fault = raw.match(/<faultstring[^>]*>([\\s\\S]*?)<\\/faultstring>/);
+    throw new Error(fault ? 'SOAP fault: ' + fault[1] : 'Geen geldig SOAP-antwoord: ' + raw.slice(0, 300));
+  }
+  const payload = unescapeXml(ret[1]);
+  if (payload.includes('TEoCustomLinkException')) {
+    throw new Error('MendriX: ' + unescapeXml((payload.match(/<ExceptionMessage>([\\s\\S]*?)<\\/ExceptionMessage>/) || [])[1] || payload.slice(0, 300)));
+  }
+  return payload;
+};
+const norm = s => String(s ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+const tag = (block, name) => unescapeXml((block.match(new RegExp('<' + name + '>([^<]*)</' + name + '>')) || [])[1] || '');
+
+// 1. Bestaat de uitvoerder al? Zelfde naam, of naam en postcode komen allebei voor.
+const gevonden = await soap('<EoCustomLinkRequestEmployees Type="TEoCustomLinkRequestEmployees"><Nested>False</Nested>' +
+  '<Filter Type="TEoFilterEmployees"><Active>fsActiveBoth</Active><Administration>-2</Administration>' +
+  '<Search>' + esc(d.naam) + '</Search></Filter></EoCustomLinkRequestEmployees>');
+const dubbel = (gevonden.match(/<EoEmployeeMx[\\s>][\\s\\S]*?<\\/EoEmployeeMx>/g) || []).find(b =>
+  norm(tag(b, 'Name')) === norm(d.naam) || (norm(b).includes(norm(d.naam)) && norm(b).includes(norm(d.postcode))));
+if (dubbel) {
+  const id = Number((dubbel.match(/<EmployeeId[^>]*>\\s*<Id>(\\d+)<\\/Id>/) || [])[1]);
+  return [{ json: { httpStatus: 409, body: { status: 'bestaat_al', soort: 'uitvoerder', id, nummer: tag(dubbel, 'Number') || null, naam: tag(dubbel, 'Name'),
+    error: 'Er bestaat al een uitvoerder met deze naam (of naam en postcode): ' + tag(dubbel, 'Name') + ' (Id ' + id + '). Er is niets aangemaakt.' } } }];
+}
+
+// 2. Nieuwe uitvoerder opslaan (EmployeeId -1).
+const el = (name, v) => v ? '<' + name + '>' + esc(String(v).trim()) + '</' + name + '>' : '';
+const m = d.adres.match(/^(.+?)\\s+(\\d.*)$/);
+const [straat, huisnummer] = m ? [m[1], m[2]] : [d.adres, ''];
+const medewerker =
+  '<EoEmployeeMx Type="TEoEmployeeMx">' + el('Name', d.naam) +
+  '<EmployeeId Type="TEoKeyIntInfraMx"><Id>-1</Id></EmployeeId>' +
+  '<AddressHome Type="TEoAddress">' + el('Name', d.naam) + el('Street', straat) + el('Number', huisnummer) +
+    el('PostalCode', d.postcode) + el('Place', d.plaats) + el('Country', d.land === 'NL' ? 'Nederland' : d.land) + el('CountryCode', d.land) +
+  '</AddressHome>' +
+  '<AdministrationId>1</AdministrationId><Courier>True</Courier>' +
+  '<ConnectivityHome Type="TEoConnectivity">' + el('Email', d.email) + el('Phone', d.telefoon) + '</ConnectivityHome>' +
+  '<Deleted>False</Deleted><IsActive>True</IsActive><MarkChars>u</MarkChars><Extern>True</Extern>' +
+  // Notes is een kort databaseveld; bij bestaande uitbesteders staat hier de bedrijfsnaam.
+  el('Notes', d.naam.slice(0, 30)) +
+  '<VehicleNo>133</VehicleNo></EoEmployeeMx>';
+const opgeslagen = await soap('<EoCustomLinkStoreEmployees Type="TEoCustomLinkStoreEmployees"><Data Type="TEoEmployeeMxList"><_TEoListBase_Items>' +
+  medewerker + '</_TEoListBase_Items></Data></EoCustomLinkStoreEmployees>');
+const id = Number((opgeslagen.match(/<Id>(\\d+)<\\/Id>/) || [])[1] || 0);
+if (!id || !/etNone/.test(opgeslagen)) throw new Error('Uitvoerder niet opgeslagen. Antwoord van MendriX: ' + opgeslagen.slice(0, 500));
+
+// MendriX zet het nummer kort na het aanmaken zelf gelijk aan het Id (waargenomen bij 2220 en 2228).
+// Btw en KvK hebben geen veld in de medewerker-koppeling (TEoEmployeeMx).
+const nietOpgeslagen = [];
+if (d.btw) nietOpgeslagen.push('uitvoerder.btw');
+if (d.kvk) nietOpgeslagen.push('uitvoerder.kvk');
+const waarschuwingen = nietOpgeslagen.length
+  ? ['Btw- en KvK-nummer kunnen niet via de koppeling worden opgeslagen; vul ze zo nodig handmatig in MendriX in.'] : [];
+return [{ json: { httpStatus: 201, body: { status: 'aangemaakt', soort: 'uitvoerder', id, nummer: String(id), naam: d.naam, nietOpgeslagen, waarschuwingen } } }];`
+    }
+  },
+  output: [{ httpStatus: 201, body: { status: 'aangemaakt', soort: 'uitvoerder', id: 2228 } }]
+});
+
+const respondUitvoerder = node({
+  type: 'n8n-nodes-base.respondToWebhook',
+  version: 1.5,
+  config: {
+    name: 'Antwoord: uitvoerder',
+    position: [1210, -400],
+    parameters: {
+      respondWith: 'json',
+      responseBody: expr('{{ JSON.stringify($json.body) }}'),
+      options: { responseCode: expr('{{ $json.httpStatus }}') }
+    }
+  },
+  output: [{}]
+});
+
 export default workflow('mendrix-relatie-api', 'MendriX - Relatie aanmaken (API voor app)')
   .add(webhook)
   .to(config)
   .to(validate)
   .to(isValid
-    .onTrue(searchRequest
-      .to(searchSoap.onError(respondError))
-      .to(buildStore.onError(respondError))
-      .to(isNew
-        .onTrue(storeSoap.onError(respondError).to(readResult.onError(respondError)).to(lookupSoap).to(buildAnswer).to(respondCreated))
-        .onFalse(respondExists)))
+    .onTrue(isUitvoerder
+      .onTrue(createUitvoerder.onError(respondError).to(respondUitvoerder))
+      .onFalse(searchRequest
+        .to(searchSoap.onError(respondError))
+        .to(buildStore.onError(respondError))
+        .to(isNew
+          .onTrue(storeSoap.onError(respondError).to(readResult.onError(respondError)).to(lookupSoap).to(buildAnswer).to(respondCreated))
+          .onFalse(respondExists))))
     .onFalse(respondInvalid));

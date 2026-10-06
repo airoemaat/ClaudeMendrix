@@ -156,6 +156,31 @@ REST-veldnamen van een relatie (`GET {rest}/client/clients/{id}`): `defaultTaskA
 laad- en losadres (`premise` = Locatie), `orderEntry.taskContactName` = Persoon,
 `billing` = factuurgegevens, `commerce` = KvK/btw.
 
+### Uitvoerders (uitbesteders) via dezelfde API
+
+Body `{"soort":"uitvoerder","uitvoerder":{"naam","adres","postcode","plaats","land","telefoon","email","btw","kvk"}}`.
+Prompt voor de app: `docs/ai-studio-wijziging-uitvoerder.md`.
+
+Een uitvoerder is in MendriX een **medewerker** (`StoreEmployees`, `TEoEmployeeMx`) met
+categorie `MarkChars = "u"` (Uitbesteder). Standaardwaarden overgenomen van de 259 bestaande
+uitbesteders: `Courier`/`Extern` = True, `IsActive` = True, `VehicleNo` 133, `AdministrationId` 1,
+`Notes` = bedrijfsnaam (kort veld: langere tekst geeft "String or binary data would be truncated").
+
+| Formulier | TEoEmployeeMx |
+|---|---|
+| Company name | `Name`, `AddressHome/Name`, `Notes` |
+| Address / Zip code / City / Country | `AddressHome` (Street + Number, PostalCode, Place, Country) |
+| Phone number / General mail address | `ConnectivityHome` (Phone, Email) |
+| VAT number / Chamber of commerce | **geen veld** in de koppeling → `nietOpgeslagen` + `waarschuwingen` |
+
+- Dubbelcontrole: `RequestEmployees` met `Search=<naam>`; zelfde naam (of naam + postcode) → 409.
+- `Number` is via `StoreEmployees` niet te zetten; MendriX maakt het kort na het aanmaken gelijk
+  aan het Id (gezien bij 2220 en 2228). Het 201-antwoord geeft daarom `nummer` = Id.
+- `StoreEmployees` schrijft het record zoals verstuurd: weggelaten velden worden leeg. Nooit een
+  bestaande medewerker bijwerken zonder eerst het volledige record op te halen.
+- De REST-API heeft geen medewerker-endpoints (geprobeerd: `/employee/employees`, `/operator/operators`, …).
+- Getest 6 oktober 2026: "TEST Claude Uitbesteder BV" → Id/nummer 2228; dubbelcontrole geeft 409.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
