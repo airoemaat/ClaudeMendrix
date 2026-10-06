@@ -138,15 +138,23 @@ Body: {
 
 | Status | Inhoud |
 |---|---|
-| 201 | `{"status":"aangemaakt","id":3630,"relatienummer":"58482","naam":"...","nietOpgeslagen":[]}` |
+| 201 | `{"status":"aangemaakt","id":3630,"relatienummer":"58482","naam":"...","nietOpgeslagen":[],"waarschuwingen":[]}` |
 | 400 | `{"status":"ongeldig","fouten":[...]}`: naam/adres/postcode/plaats ontbreken of land is geen 2-letterige code |
 | 409 | `{"status":"bestaat_al","relatienummer":"56190",...}`: zelfde KvK-nummer, of zelfde naam en postcode |
 | 502 | `{"status":"fout","error":"..."}`: fout bij MendriX |
 
-Getest op 6 oktober 2026: de 400 en de 409 (Konimpex). De 201 loopt via dezelfde
-StoreClients-stap als het formulier; het opvragen van het relatienummer daarna is nog niet
-via deze API getest. De contactpersoon van het laad- en losadres wordt niet opgeslagen en
-staat dan in `nietOpgeslagen`.
+Getest op 6 oktober 2026: de 400 en de 409 (Konimpex). De 201 ook: "TEST Claude BV 2" →
+relatienummer 58485, met contactpersoon laad- en losadres "Doppie".
+
+Contactpersoon laad- en losadres ("Persoon" in MendriX) kent Custom Link (SOAP) niet. Na
+`StoreClients` zet de workflow die daarom via REST:
+`PATCH {rest}/client/clients/{id}` met `{"orderEntry":{"taskContactName":"..."}}`.
+PATCH wijzigt alleen de meegestuurde velden (getest). Mislukt dat, dan is de relatie wel
+aangemaakt en staat het veld in `nietOpgeslagen` en de reden in `waarschuwingen`.
+
+REST-veldnamen van een relatie (`GET {rest}/client/clients/{id}`): `defaultTaskAddress` =
+laad- en losadres (`premise` = Locatie), `orderEntry.taskContactName` = Persoon,
+`billing` = factuurgegevens, `commerce` = KvK/btw.
 
 ## n8n
 

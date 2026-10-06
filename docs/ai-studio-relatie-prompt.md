@@ -93,17 +93,18 @@ Alle velden zijn strings. `twijfels` is alleen voor de app; stuur die niet mee n
    - Controleer in de browser: postcode-formaat (bij land NL), e-mailadressen, IBAN-lengte en
      KvK = 8 cijfers. Bij afwijkingen een waarschuwing, maar versturen mag wel.
    - Is het laad- en losadres leeg? Toon dan de tekst "Leeg = zelfde als bedrijfsadres".
-   - De contactpersoon van het laad- en losadres slaat MendriX niet op. Toon daarom bij dat
-     veld de tekst "Wordt niet opgeslagen in MendriX".
+   - De contactpersoon van het laad- en losadres komt in MendriX in het veld "Persoon" van het
+     laad- en losadres. Toon daar geen waarschuwing.
    - Knoppen: "Opnieuw uitlezen" en "Naar MendriX sturen".
 3. **Versturen**: `POST MENDRIX_API_URL` met de headers `Content-Type: application/json` en
    `X-Api-Key: MENDRIX_API_KEY`. De body is het JSON-object zonder `twijfels`. Optioneel kan er
    een veld `"relatienummer": ""` bij; laat het weg, dan kiest MendriX het nummer zelf.
    Zet de knop uit tijdens het versturen, zodat een relatie nooit twee keer wordt verstuurd.
 4. **Resultaat**: verwerk het antwoord van de API:
-   - **201** `{ "status": "aangemaakt", "id": 3630, "relatienummer": "58482", "naam": "...", "nietOpgeslagen": [] }`
+   - **201** `{ "status": "aangemaakt", "id": 3630, "relatienummer": "58482", "naam": "...", "nietOpgeslagen": [], "waarschuwingen": [] }`
      → groene melding "Relatie {naam} aangemaakt met relatienummer {relatienummer}".
-     Staat er iets in `nietOpgeslagen`, noem die velden dan in een kleine melding.
+     Staat er iets in `waarschuwingen`, toon die teksten dan in een oranje melding onder de groene
+     (de relatie is wel aangemaakt).
    - **409** `{ "status": "bestaat_al", "relatienummer": "56190", "error": "..." }`
      → oranje melding "Deze relatie bestaat al in MendriX (relatienummer …). Er is niets
      aangemaakt."

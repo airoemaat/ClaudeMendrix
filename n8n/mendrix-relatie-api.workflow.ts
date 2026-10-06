@@ -31,12 +31,14 @@ const config = node({
         assignments: [
           { id: 'soap', name: 'soapUrl', value: 'http://test.roemaat.nl:5564/soap/ICustomLinkSoap', type: 'string' },
           { id: 'su', name: 'soapUser', value: 'VUL_IN_SOAP_GEBRUIKERSNAAM', type: 'string' },
-          { id: 'sp', name: 'soapPwd', value: 'VUL_IN_SOAP_WACHTWOORD', type: 'string' }
+          { id: 'sp', name: 'soapPwd', value: 'VUL_IN_SOAP_WACHTWOORD', type: 'string' },
+          { id: 'rest', name: 'restBaseUrl', value: 'http://test.roemaat.nl:38000/api', type: 'string' },
+          { id: 'tok', name: 'apiToken', value: 'VUL_IN_MENDRIX_API_TOKEN', type: 'string' }
         ]
       }
     }
   },
-  output: [{ soapUrl: '', soapUser: '', soapPwd: '' }]
+  output: [{ soapUrl: '', soapUser: '', soapPwd: '', restBaseUrl: '', apiToken: '' }]
 });
 
 const validate = node({
@@ -343,14 +345,35 @@ const buildAnswer = node({
     parameters: {
       mode: 'runOnceForAllItems',
       jsCode: `// Relatienummer uit het RequestClients-antwoord halen (mag ontbreken; de relatie bestaat dan wel).
+const c = $('Configuratie').first().json;
 const d = $('Gegevens controleren').first().json;
 const id = $('Resultaat uitlezen').first().json.id;
 const raw = String($input.first().json.data ?? '').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 // Het relatienummer staat tussen </ClientId> en <Address (Address heeft zelf ook een <Number>: het huisnummer).
 const kop = (raw.split('</ClientId>')[1] || '').split('<Address')[0];
-const relatienummer = (kop.match(/<Number>([^<]*)<\\/Number>/) || [])[1] || null;
-const nietOpgeslagen = d.laadContact ? ['laadEnLosadres.contactpersoon'] : [];
-return [{ json: { status: 'aangemaakt', id, relatienummer, naam: d.naam, nietOpgeslagen } }];`
+let relatienummer = (kop.match(/<Number>([^<]*)<\\/Number>/) || [])[1] || null;
+const nietOpgeslagen = [];
+const waarschuwingen = [];
+// "Persoon" bij het laad- en losadres kent Custom Link (SOAP) niet; via REST heet het
+// orderEntry.taskContactName. PATCH wijzigt alleen dat veld (getest 6 oktober 2026).
+if (d.laadContact) {
+  try {
+    const login = await this.helpers.httpRequest({ method: 'POST', url: c.restBaseUrl + '/account/login-api-token', body: { token: c.apiToken }, json: true, timeout: 30000 });
+    const token = login?.data?.items?.[0]?.access;
+    const res = await this.helpers.httpRequest({
+      method: 'PATCH', url: c.restBaseUrl + '/client/clients/' + id,
+      headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+      body: { orderEntry: { taskContactName: d.laadContact } }, json: true, timeout: 30000
+    });
+    const client = res?.data?.items?.[0] ?? {};
+    relatienummer = relatienummer || client.number || null;
+    if (client.orderEntry?.taskContactName !== d.laadContact) throw new Error('MendriX gaf een andere waarde terug');
+  } catch (e) {
+    nietOpgeslagen.push('laadEnLosadres.contactpersoon');
+    waarschuwingen.push('Contactpersoon laad- en losadres niet opgeslagen: ' + e.message);
+  }
+}
+return [{ json: { status: 'aangemaakt', id, relatienummer, naam: d.naam, nietOpgeslagen, waarschuwingen } }];`
     }
   },
   output: [{ status: 'aangemaakt', id: 3630, relatienummer: '58482' }]
