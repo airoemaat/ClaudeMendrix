@@ -87,8 +87,29 @@ n8n-workflow **"MendriX - Relaties en uitvoerders opzoeken (formulier)"**
   namen zijn nog **niet bevestigd**; zie de foutmelding van MendriX als ze niet kloppen.
 - Vul in de node **Configuratie** de SOAP-gebruikersnaam en het wachtwoord in.
 
-Volgende stap: relaties en uitvoerders aanmaken/bijwerken. Daarvoor is de
-documentatie van het bijbehorende Custom Link-verzoek nodig (naam en velden).
+## Nieuwe relatie aanmaken (SOAP StoreClients)
+
+n8n-workflow **"MendriX - Nieuwe relatie aanmaken (formulier)"**
+(bron: `n8n/mendrix-relatie-aanmaken.workflow.ts`). Nog **niet getest**.
+
+1. Formulier met de velden van het intakeformulier (bedrijfs- en administratieve gegevens).
+2. `RequestClients` met `Search=<bedrijfsnaam>`: bestaat er al een relatie met hetzelfde
+   KvK-nummer, of dezelfde naam en postcode, dan wordt er niets aangemaakt.
+3. `StoreClients` met één `TEoClientMx` en `ClientId/Id = -1` (nieuw); het antwoord
+   (`EoStoreResultList`) bevat het nieuwe interne Id.
+
+| Formulier | TEoClientMx |
+|---|---|
+| Bedrijfsnaam, adres, postcode, plaats, land | `Address` (Name, Street, Postcode, Place, Country) |
+| Telefoon, mobiel, algemeen mailadres | `Connectivity` (Phone, Mobile, Email) |
+| Contactpersoon | `ContactName` |
+| KVK-nummer / BTW-nummer | `CommerceNumber` / `VatCode` |
+| Bankrekeningnummer | `BankAccount` |
+| E-mailadres voor factuur | `InvoiceEmailAddress` |
+
+Onbevestigd: de veldnamen binnen `Address`/`Connectivity` en de lijst-tag `<Clients>` in
+het opslagverzoek. Controleer ze met een `RequestClients`-antwoord van een bestaande
+relatie. Het laad- en losadres zit niet in `TEoClientMx` en wordt nog niet opgeslagen.
 
 ## n8n
 
