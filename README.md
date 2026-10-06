@@ -74,6 +74,22 @@ Body:   {"shipId": "123456", "vanaf": "2026-08-01"}   (vanaf is optioneel)
 | 404 | `{"error": "..."}`: geen orders of geen CMR gevonden |
 | 502 | `{"error": "..."}`: fout bij MendriX |
 
+## Relaties en uitvoerders opzoeken (SOAP)
+
+n8n-workflow **"MendriX - Relaties en uitvoerders opzoeken (formulier)"**
+(bron: `n8n/mendrix-relaties-opvragen.workflow.ts`). Alleen lezen.
+
+- Formulier: soort (Relaties / Uitvoerders / Beide), zoekterm en/of relatienummers.
+- Relaties: Custom Link `RequestClients` met filter `TEoFilterClients`
+  (`Active=fsActiveBoth`, `Administration=-2`, `Search`, `NumbersExplicitAsCsv`);
+  antwoord `TEoClientMx` wordt omgezet naar JSON.
+- Uitvoerders: dezelfde opbouw met `RequestCharters` / `TEoFilterCharters`. Die
+  namen zijn nog **niet bevestigd**; zie de foutmelding van MendriX als ze niet kloppen.
+- Vul in de node **Configuratie** de SOAP-gebruikersnaam en het wachtwoord in.
+
+Volgende stap: relaties en uitvoerders aanmaken/bijwerken. Daarvoor is de
+documentatie van het bijbehorende Custom Link-verzoek nodig (naam en velden).
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
