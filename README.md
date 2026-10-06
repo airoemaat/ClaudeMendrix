@@ -117,6 +117,34 @@ De contactpersoon van het laad- en losadres heeft geen veld in `TEoClientMx`.
 Uitvoerders: `RequestCharters` bestaat niet (`GetClass('TEoCustomLinkRequestCharters')=nil`);
 de juiste Custom Link-klasse moet nog uit de documentatie komen.
 
+## Relatie-API voor de AI Studio-app
+
+n8n-workflow **"MendriX - Relatie aanmaken (API voor app)"**
+(bron: `n8n/mendrix-relatie-api.workflow.ts`). Prompt voor de app: `docs/ai-studio-relatie-prompt.md`.
+
+```
+POST https://roemaat.app.n8n.cloud/webhook/mendrix-relatie
+Header: X-Api-Key: <sleutel uit n8n-credential "Header Auth account">
+Body: {
+  "bedrijf":        { "naam", "adres", "postcode", "plaats", "land", "telefoon", "mobiel", "email", "contactpersoon" },
+  "laadEnLosadres": { "naam", "contactpersoon", "adres", "postcode", "plaats" },
+  "administratie":  { "kvk", "btw", "iban", "factuurEmail" },
+  "relatienummer":  ""   (optioneel; leeg = MendriX kiest)
+}
+```
+
+| Status | Inhoud |
+|---|---|
+| 201 | `{"status":"aangemaakt","id":3630,"relatienummer":"58482","naam":"...","nietOpgeslagen":[]}` |
+| 400 | `{"status":"ongeldig","fouten":[...]}`: naam/adres/postcode/plaats ontbreken of land is geen 2-letterige code |
+| 409 | `{"status":"bestaat_al","relatienummer":"56190",...}`: zelfde KvK-nummer, of zelfde naam en postcode |
+| 502 | `{"status":"fout","error":"..."}`: fout bij MendriX |
+
+Getest op 6 oktober 2026: de 400 en de 409 (Konimpex). De 201 loopt via dezelfde
+StoreClients-stap als het formulier; het opvragen van het relatienummer daarna is nog niet
+via deze API getest. De contactpersoon van het laad- en losadres wordt niet opgeslagen en
+staat dan in `nietOpgeslagen`.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
