@@ -83,14 +83,13 @@ n8n-workflow **"MendriX - Relaties en uitvoerders opzoeken (formulier)"**
 - Relaties: Custom Link `RequestClients` met filter `TEoFilterClients`
   (`Active=fsActiveBoth`, `Administration=-2`, `Search`, `NumbersExplicitAsCsv`);
   antwoord `TEoClientMx` wordt omgezet naar JSON.
-- Uitvoerders: dezelfde opbouw met `RequestCharters` / `TEoFilterCharters`. Die
-  namen zijn nog **niet bevestigd**; zie de foutmelding van MendriX als ze niet kloppen.
+- Uitvoerders: nog niet werkend (`RequestCharters` bestaat niet in MendriX).
 - Vul in de node **Configuratie** de SOAP-gebruikersnaam en het wachtwoord in.
 
 ## Nieuwe relatie aanmaken (SOAP StoreClients)
 
 n8n-workflow **"MendriX - Nieuwe relatie aanmaken (formulier)"**
-(bron: `n8n/mendrix-relatie-aanmaken.workflow.ts`). Nog **niet getest**.
+(bron: `n8n/mendrix-relatie-aanmaken.workflow.ts`).
 
 1. Formulier met de velden van het intakeformulier (bedrijfs- en administratieve gegevens).
 2. `RequestClients` met `Search=<bedrijfsnaam>`: bestaat er al een relatie met hetzelfde
@@ -100,16 +99,21 @@ n8n-workflow **"MendriX - Nieuwe relatie aanmaken (formulier)"**
 
 | Formulier | TEoClientMx |
 |---|---|
-| Bedrijfsnaam, adres, postcode, plaats, land | `Address` (Name, Street, Postcode, Place, Country) |
+| Bedrijfsnaam, adres, postcode, plaats, land | `Address` (Name, Street + Number, PostalCode, Place, Country/CountryCode); ook als `AddressInvoice` |
 | Telefoon, mobiel, algemeen mailadres | `Connectivity` (Phone, Mobile, Email) |
 | Contactpersoon | `ContactName` |
 | KVK-nummer / BTW-nummer | `CommerceNumber` / `VatCode` |
 | Bankrekeningnummer | `BankAccount` |
 | E-mailadres voor factuur | `InvoiceEmailAddress` |
+| Laad- en losadres | `AddressTask` (leeg = hoofdadres) |
 
-Onbevestigd: de veldnamen binnen `Address`/`Connectivity` en de lijst-tag `<Clients>` in
-het opslagverzoek. Controleer ze met een `RequestClients`-antwoord van een bestaande
-relatie. Het laad- en losadres zit niet in `TEoClientMx` en wordt nog niet opgeslagen.
+De veldnamen en de lijstopbouw (`<Data Type="TEoClientMxList"><_TEoListBase_Items>`) komen
+uit een echt `RequestClients`-antwoord (Konimpex, 6 oktober 2026). De dubbelcontrole is
+getest (Konimpex wordt herkend, er wordt niets aangemaakt); het daadwerkelijk opslaan nog niet.
+De contactpersoon van het laad- en losadres heeft geen veld in `TEoClientMx`.
+
+Uitvoerders: `RequestCharters` bestaat niet (`GetClass('TEoCustomLinkRequestCharters')=nil`);
+de juiste Custom Link-klasse moet nog uit de documentatie komen.
 
 ## n8n
 

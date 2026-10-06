@@ -25,6 +25,10 @@ const form = trigger({
           { fieldLabel: 'BTW-nummer', fieldName: 'btw', fieldType: 'text', requiredField: false },
           { fieldLabel: 'Bankrekeningnummer (IBAN)', fieldName: 'iban', fieldType: 'text', requiredField: false },
           { fieldLabel: 'E-mailadres voor factuur', fieldName: 'factuurEmail', fieldType: 'email', requiredField: false },
+          { fieldLabel: 'Laad- en losadres: bedrijfsnaam (leeg = zelfde als hierboven)', fieldName: 'laadNaam', fieldType: 'text', requiredField: false },
+          { fieldLabel: 'Laad- en losadres: adres (leeg = hoofdadres)', fieldName: 'laadAdres', fieldType: 'text', requiredField: false },
+          { fieldLabel: 'Laad- en losadres: postcode', fieldName: 'laadPostcode', fieldType: 'text', requiredField: false },
+          { fieldLabel: 'Laad- en losadres: plaats', fieldName: 'laadPlaats', fieldType: 'text', requiredField: false },
           { fieldLabel: 'Relatienummer (leeg = MendriX kiest)', fieldName: 'relatienummer', fieldType: 'text', requiredField: false }
         ]
       },
@@ -158,29 +162,42 @@ if (dubbel) {
 }
 
 // 2. Nieuwe relatie (TEoClientMx) met ClientId/Id = -1. Eén relatie per StoreClients-aanroep.
-// LET OP: de veldnamen binnen Address en Connectivity zijn nog niet bevestigd; pas ze hier aan
-// zodra een RequestClients-antwoord de echte namen laat zien.
+// Opbouw gelijk aan het RequestClients-antwoord (Data / _TEoListBase_Items, TEoAddress).
 const el = (name, v) => v ? '<' + name + '>' + esc(String(v).trim()) + '</' + name + '>' : '';
+// "Doetinchemseweg 69" -> Street "Doetinchemseweg", Number "69".
+const splitStreet = s => { const m = String(s ?? '').trim().match(/^(.+?)\\s+(\\d.*)$/); return m ? [m[1], m[2]] : [String(s ?? '').trim(), '']; };
+const countryCode = (c.land || 'NL').trim().toUpperCase();
+const address = (tag, a) => {
+  const [street, number] = splitStreet(a.adres);
+  return '<' + tag + ' Type="TEoAddress">' +
+    el('Name', a.naam) + el('Street', street) + el('Number', number) + el('PostalCode', a.postcode) +
+    el('Place', a.plaats) + el('Country', countryCode === 'NL' ? 'Nederland' : '') + el('CountryCode', countryCode) +
+    '</' + tag + '>';
+};
+const hoofdadres = { naam: c.naam, adres: c.adres, postcode: c.postcode, plaats: c.plaats };
+// Laad- en losadres (AddressTask); leeg = het hoofdadres, zoals bij bestaande relaties.
+const laadadres = c.laadAdres
+  ? { naam: c.laadNaam || c.naam, adres: c.laadAdres, postcode: c.laadPostcode, plaats: c.laadPlaats }
+  : hoofdadres;
 const client =
   '<EoClientMx Type="TEoClientMx">' +
-  '<ClientId Type="TEoKeyInt"><Id>-1</Id></ClientId>' +
+  '<ClientId Type="TEoKeyIntInfraMx"><Id>-1</Id></ClientId>' +
   el('Number', c.relatienummer) +
-  '<Address Type="TEoAddress">' +
-    el('Name', c.naam) + el('Street', c.adres) + el('Postcode', c.postcode) +
-    el('Place', c.plaats) + el('Country', (c.land || 'NL').toUpperCase()) +
-  '</Address>' +
+  address('Address', hoofdadres) +
+  el('CommerceNumber', c.kvk) +
   '<Connectivity Type="TEoConnectivity">' +
-    el('Phone', c.telefoon) + el('Mobile', c.mobiel) + el('Email', c.email) +
+    el('Email', c.email) + el('Mobile', c.mobiel) + el('Phone', c.telefoon) +
   '</Connectivity>' +
   el('ContactName', c.contactpersoon) +
-  el('CommerceNumber', c.kvk) +
   el('VatCode', c.btw) +
-  el('BankAccount', String(c.iban ?? '').replace(/\\s/g, '').toUpperCase()) +
+  address('AddressInvoice', hoofdadres) +
   el('InvoiceEmailAddress', c.factuurEmail) +
+  el('BankAccount', String(c.iban ?? '').replace(/\\s/g, '').toUpperCase()) +
+  address('AddressTask', laadadres) +
   '</EoClientMx>';
 const inner = '<?xml version="1.0" encoding="windows-1252"?>' +
   '<EoCustomLinkStoreClients Type="TEoCustomLinkStoreClients">' +
-  '<Clients Type="TEoClientMxList">' + client + '</Clients>' +
+  '<Data Type="TEoClientMxList"><_TEoListBase_Items>' + client + '</_TEoListBase_Items></Data>' +
   '</EoCustomLinkStoreClients>';
 return [{ json: { dubbel: false, verzoekXml: inner, soapEnvelope: envelope(inner) } }];`
     }
@@ -271,7 +288,7 @@ const done = node({
       operation: 'completion',
       respondWith: 'text',
       completionTitle: 'Relatie aangemaakt',
-      completionMessage: expr("{{ $('Configuratie').first().json.naam }} is aangemaakt in MendriX (intern Id {{ $json.id }}). Het laad- en losadres wordt nog niet meegenomen.")
+      completionMessage: expr("{{ $('Configuratie').first().json.naam }} is aangemaakt in MendriX (intern Id {{ $json.id }}).")
     }
   },
   output: [{}]
