@@ -109,7 +109,9 @@ n8n-workflow **"MendriX - Nieuwe relatie aanmaken (formulier)"**
 
 De veldnamen en de lijstopbouw (`<Data Type="TEoClientMxList"><_TEoListBase_Items>`) komen
 uit een echt `RequestClients`-antwoord (Konimpex, 6 oktober 2026). De dubbelcontrole is
-getest (Konimpex wordt herkend, er wordt niets aangemaakt); het daadwerkelijk opslaan nog niet.
+getest (Konimpex wordt herkend, er wordt niets aangemaakt). Opslaan getest op 6 oktober 2026:
+"TEST Claude BV" → intern Id 3630, relatienummer 58482 (door MendriX gekozen); alle velden,
+inclusief laad- en losadres, kwamen terug zoals ingevuld. Betalingstermijn blijft 0 (geen formulierveld).
 De contactpersoon van het laad- en losadres heeft geen veld in `TEoClientMx`.
 
 Uitvoerders: `RequestCharters` bestaat niet (`GetClass('TEoCustomLinkRequestCharters')=nil`);
