@@ -19,7 +19,11 @@ const configuratie = node({
         assignments: [
           { id: 'cfg-max', name: 'maxMails', value: 25, type: 'number' },
           { id: 'cfg-regex', name: 'ordernummerPatroon', value: '^1\\d{6}$', type: 'string' },
-          { id: 'cfg-run', name: 'runId', value: expr('{{ $execution.id }}'), type: 'string' }
+          { id: 'cfg-run', name: 'runId', value: expr('{{ $execution.id }}'), type: 'string' },
+          { id: 'cfg-map', name: 'mapId', value: 'inbox', type: 'string' },
+          { id: 'cfg-lees', name: 'leesStatus', value: 'unread', type: 'string' },
+          { id: 'cfg-na', name: 'ontvangenNa', value: '2026-10-01T00:00:00Z', type: 'string' },
+          { id: 'cfg-voor', name: 'ontvangenVoor', value: '2099-01-01T00:00:00Z', type: 'string' }
         ]
       }
     }
@@ -35,7 +39,7 @@ const mailsOphalen = node({
     parameters: {
       resource: 'folderMessage',
       operation: 'getAll',
-      folderId: { __rl: true, mode: 'id', value: 'inbox' },
+      folderId: { __rl: true, mode: 'id', value: expr('{{ $json.mapId }}') },
       returnAll: false,
       limit: expr('{{ $json.maxMails }}'),
       output: 'fields',
@@ -43,7 +47,7 @@ const mailsOphalen = node({
       filtersUI: {
         values: {
           filterBy: 'filters',
-          filters: { readStatus: 'unread', hasAttachments: true }
+          filters: { readStatus: expr('{{ $json.leesStatus }}'), hasAttachments: true, receivedAfter: expr('{{ $json.ontvangenNa }}'), receivedBefore: expr('{{ $json.ontvangenVoor }}') }
         }
       },
       options: { downloadAttachments: true, attachmentsPrefix: 'attachment_' }
@@ -333,7 +337,7 @@ const downloadCmr = node({
     name: 'Gesplitste CMR downloaden',
     parameters: {
       method: 'GET',
-      url: expr('{{ ($json.urls && $json.urls[0]) || $json.url || ($json.body && $json.body.urls && $json.body.urls[0]) }}'),
+      url: expr('{{ (Array.isArray($json.body) && $json.body[0]) || ($json.urls && $json.urls[0]) || $json.url }}'),
       options: { response: { response: { responseFormat: 'file', outputPropertyName: 'data' } } }
     }
   },
@@ -348,16 +352,20 @@ const gesplitsteCmrKlaar = node({
     parameters: {
       mode: 'runOnceForAllItems',
       language: 'javaScript',
-      jsCode: `const meta = Object.assign({}, $('Per CMR').first().json);
+      jsCode: `const bron = $('Per CMR').first();
+const meta = Object.assign({}, bron.json);
 const item = $input.first();
 const bestand = item.binary && item.binary.data;
-if (!bestand) {
+const isPdf = bestand && (String(bestand.mimeType || '').includes('pdf') || String(bestand.fileExtension || '').toLowerCase() === 'pdf');
+if (!isPdf) {
   meta.status = 'fout';
-  meta.melding = [meta.melding, 'Splitsen mislukt: geen bestand van PDF.co'].filter(Boolean).join(' | ');
-  return [{ json: meta }];
+  meta.melding = [meta.melding, 'Knippen mislukt (geen PDF terug van PDF.co): CMR = pagina ' + meta.paginas + ' van ' + meta.bronbestand].filter(Boolean).join(' | ');
+  const origineel = bron.binary && bron.binary.bron;
+  return [{ json: meta, binary: origineel ? { bron: origineel } : undefined }];
 }
 bestand.fileName = meta.nieuw_bestand;
 bestand.mimeType = 'application/pdf';
+bestand.fileExtension = 'pdf';
 return [{ json: meta, binary: { cmr: bestand } }];`
     }
   },
