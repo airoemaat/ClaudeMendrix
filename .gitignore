@@ -1,3 +1,6 @@
 .env
 downloads/
 __pycache__/
+
+# klantdata (KvK-lookup in-/uitvoer)
+*.tsv
