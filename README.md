@@ -28,6 +28,17 @@ geeft het hele orderdossier terug als zip. `{id}` is het order-id.
 - Poort 38000 is onversleuteld (http): het API-token en het access-JWT gaan leesbaar
   over internet. Gebruik bij voorkeur https.
 
+## Omgevingen
+
+| | Test | Live |
+|---|---|---|
+| REST | `http://test.roemaat.nl:38000/api` | `http://connection.roemaat.nl:38000/api` |
+| SOAP Custom Link | `http://test.roemaat.nl:5564/soap/ICustomLinkSoap` | `http://connection.roemaat.nl:5564/soap/ICustomLinkSoap` |
+
+Live en test hebben eigen API-tokens en SOAP-gebruikers. Het IP van n8n Cloud (20.218.174.14)
+staat voor beide servers op de whitelist; live getest op 15 oktober 2026 (SOAP lezen/opslaan en
+REST-login).
+
 ## Konimpex: dossiers op Ship ID
 
 n8n-workflow **"MendriX - Konimpex dossiers op Ship ID (formulier)"**
