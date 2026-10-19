@@ -185,6 +185,27 @@ uitbesteders: `Courier`/`Extern` = True, `IsActive` = True, `VehicleNo` 133, `Ad
 - De REST-API heeft geen medewerker-endpoints (geprobeerd: `/employee/employees`, `/operator/operators`, …).
 - Getest 6 oktober 2026: "TEST Claude Uitbesteder BV" → Id/nummer 2228; dubbelcontrole geeft 409.
 
+## Live-omgeving
+
+n8n-workflow **"MendriX LIVE - Relatie aanmaken (API voor app)"** (id `IfOSE2xBs6rGxN4K`): dezelfde
+workflow als de testversie (`n8n/mendrix-relatie-api.workflow.ts`), met als verschillen:
+
+| | Test | Live |
+|---|---|---|
+| Webhook | `/webhook/mendrix-relatie` | `/webhook/mendrix-relatie-live` |
+| SOAP | `http://test.roemaat.nl:5564/soap/ICustomLinkSoap` | `http://connection.roemaat.nl:5564/soap/ICustomLinkSoap` |
+| REST | `http://test.roemaat.nl:38000/api` | `http://connection.roemaat.nl:38000/api` |
+
+Let op: het live-SOAP-adres heeft de poort met een dubbele punt (`:5564`); `.../5564/...` in het pad
+geeft een 404. Poort 38001 voor REST reageert niet; 38000 werkt.
+De inlog staat (net als bij test) als gewone tekst in de node **Configuratie** en niet in git.
+
+Gecontroleerd op live, alleen lezen of zonder te schrijven (19 oktober 2026): SOAP-zoekopdracht,
+REST-login, dubbelcontrole (Konimpex wordt herkend, nummer 56190) en de foutenlijst bij ongeldige
+invoer. Een nieuwe relatie of uitvoerder is op live **nog niet aangemaakt**.
+Status: de workflow is aangemaakt maar nog niet aangezet (publiceren). Prompt voor de app:
+`docs/ai-studio-wijziging-live.md`.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
