@@ -96,6 +96,35 @@ De zip komt in `downloads/dossier_order_<nr>.zip`, de uitgepakte bestanden in
 `downloads/<nr>/`. Gebruikt de testomgeving een self-signed certificaat? Zet dan
 `MENDRIX_VERIFY_TLS=false`.
 
+## Exact Globe Next: orders met leveringswijze MONT
+
+`exact_mont_orders.py` leest verkooporders met leveringswijze **MONT** uit de
+SQL Server-database van Exact Globe Next. Per order: verkoopnummer, "Levering aan"
+(debiteur, naam, afleveradres), medewerker (verkoper) en het notitieveld.
+`exact_mont_orders.sql` is dezelfde query om los in SSMS te draaien.
+
+```bash
+pip install pyodbc                                 # plus "ODBC Driver 18 for SQL Server"
+python exact_mont_orders.py kolommen               # kolommen van orkrg (notitieveld controleren)
+python exact_mont_orders.py                        # alle MONT-orders
+python exact_mont_orders.py --vanaf 2026-01-01 --csv mont.csv
+```
+
+| Gegeven | Bron |
+|---|---|
+| Verkoopnummer | `orkrg.ordernr` |
+| Levering aan | `orkrg.verzdebnr` → `cicmpy` (naam); adres uit `Addresses` (Type `DEL`), anders `cicmpy.cmp_fadd1`/`cmp_fpc`/`cmp_fcity` |
+| Medewerker | `orkrg.represent_id` → `humres.fullname` |
+| Notitie | `orkrg.<EXACT_NOTITIE_KOLOM>`; leeg = automatisch zoeken (`opmerk`, `opm`, `notes`, ...) |
+| Filter | `orkrg.levwijze = 'MONT'` |
+
+Alleen lezen: het script voert alleen vaste SELECT-statements uit en weigert alles
+anders. De verbinding is `ApplicationIntent=ReadOnly`, zonder autocommit, en wordt
+altijd teruggedraaid. Gebruik daarnaast een SQL-login met alleen `db_datareader`.
+
+Niet getest tegen een echte Exact-database. Controleer de kolomnamen eenmalig met
+`kolommen`, vooral het notitieveld.
+
 ## Beveiliging
 
 - Zet tokens nooit in code of in git. `.env` staat in `.gitignore`; in n8n staat het
