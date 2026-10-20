@@ -28,6 +28,11 @@ geeft het hele orderdossier terug als zip. `{id}` is het order-id.
 - Poort 38000 is onversleuteld (http): het API-token en het access-JWT gaan leesbaar
   over internet. Gebruik bij voorkeur https.
 
+## Rapporten samenvoegen
+
+`rapporten/merge_rtm.py` voegt twee Report Builder-rapporten (bijv. ritlijst + CMR) samen tot
+één `.rtm` voor de MendriX rapportenmodule. Zie `rapporten/README.md`.
+
 ## Konimpex: dossiers op Ship ID
 
 n8n-workflow **"MendriX - Konimpex dossiers op Ship ID (formulier)"**

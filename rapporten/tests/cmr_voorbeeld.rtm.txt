@@ -1,0 +1,168 @@
+object TppReport
+  AutoStop = False
+  DataPipeline = ppCMR
+  PrinterSetup.BinName = 'Default'
+  PrinterSetup.DocumentName = 'CMR'
+  PrinterSetup.Orientation = poLandscape
+  PrinterSetup.PaperName = 'A4'
+  PrinterSetup.PrinterName = 'Default'
+  PrinterSetup.mmMarginBottom = 0
+  PrinterSetup.mmMarginLeft = 0
+  PrinterSetup.mmMarginRight = 0
+  PrinterSetup.mmMarginTop = 0
+  PrinterSetup.mmPaperHeight = 210000
+  PrinterSetup.mmPaperWidth = 297000
+  Template.Format = ftASCII
+  Units = utMillimeters
+  EmailSettings.ReportFormat = 'PDF'
+  Version = '22.02'
+  mmColumnWidth = 0
+  DataPipelineName = 'CMR'
+  object ppDetailBand1: TppDetailBand
+    Background1.Brush.Style = bsClear
+    PrintHeight = phStatic
+    mmBottomOffset = 0
+    mmHeight = 210000
+    mmPrintPosition = 0
+    object ppImage1: TppImage
+      DesignLayer = ppDesignLayer1
+      UserName = 'Image1'
+      MaintainAspectRatio = False
+      Stretch = True
+      Picture.Data = {
+        0954506E67496D61676589504E470D0A1A0A0000000D49484452000000010000
+        000108060000001F15C4890000000D49444154789C63F8FFFF3F0005FE02FEA7
+        35B1A40000000049454E44AE426082}
+      mmHeight = 210000
+      mmLeft = 0
+      mmTop = 0
+      mmWidth = 297000
+      BandType = 4
+      LayerName = Foreground
+    end
+    object ppLabel1: TppLabel
+      DesignLayer = ppDesignLayer1
+      UserName = 'Label1'
+      Caption = 'Exemplaar voor geadresseerde'
+      mmHeight = 4000
+      mmLeft = 130000
+      mmTop = 10000
+      mmWidth = 50000
+      BandType = 4
+      LayerName = Foreground
+    end
+    object ppDBText1: TppDBText
+      DesignLayer = ppDesignLayer1
+      UserName = 'DBText1'
+      DataField = 'FromName'
+      DataPipeline = ppCMR
+      DataPipelineName = 'CMR'
+      mmHeight = 4000
+      mmLeft = 130000
+      mmTop = 25000
+      mmWidth = 60000
+      BandType = 4
+      LayerName = Foreground
+    end
+    object ppImage2: TppImage
+      DesignLayer = ppDesignLayer1
+      UserName = 'Image2'
+      mmHeight = 20000
+      mmLeft = 230000
+      mmTop = 170000
+      mmWidth = 50000
+      BandType = 4
+      LayerName = Foreground
+    end
+  end
+  object ppGroup1: TppGroup
+    BreakName = 'OrderId'
+    DataPipeline = ppCMR
+    NewPage = True
+    DataPipelineName = 'CMR'
+    object ppGroupHeaderBand1: TppGroupHeaderBand
+      mmBottomOffset = 0
+      mmHeight = 0
+      mmPrintPosition = 0
+    end
+    object ppGroupFooterBand1: TppGroupFooterBand
+      mmBottomOffset = 0
+      mmHeight = 0
+      mmPrintPosition = 0
+    end
+  end
+  object daDataModule1: TdaDataModule
+    object daADOQueryDataView1: TdaADOQueryDataViewGdx
+      UserName = 'Query_CMR'
+      Height = 300
+      object ppCMR: TppChildDBPipeline
+        AutoCreateFields = False
+        UserName = 'CMR'
+        object ppCMRppField1: TppField
+          FieldAlias = 'OrderId'
+          FieldName = 'OrderId'
+          DataType = dtInteger
+          Position = 0
+        end
+      end
+      object daSQL1: TdaSQL
+        DatabaseName = 'MainDb'
+        DataPipelineName = 'CMR'
+        EditSQLAsText = True
+        LinkType = ltMagicSQL
+        SQLText.Strings = (
+          'SELECT o.OrderId, c.ComName AS FromName, t.ToSignature, ex.Copy'
+          'FROM Orders o'
+          'JOIN clients c ON c.ClientNo = o.ClientNo'
+          'CROSS JOIN (SELECT 1 AS Copy UNION ALL SELECT 2) ex'
+          'WHERE o.OrderId IN (-1,-2,-3)'
+          'ORDER BY o.OrderId, ex.Copy')
+        object TdaField
+          Alias = 'OrderId'
+          FieldName = 'OrderId'
+          Items = <
+            item
+              Name = 'x'
+              Sub = <>
+            end
+            item
+              Name = 'y'
+            end>
+        end
+      end
+    end
+    object daADOQueryDataView2: TdaADOQueryDataViewGdx
+      UserName = 'Query_Rit'
+      object ppRit: TppChildDBPipeline
+        UserName = 'Rit'
+      end
+      object daSQL2: TdaSQL
+        DataPipelineName = 'Rit'
+        EditSQLAsText = True
+        LinkType = ltParameterizedSQL
+        SQLText.Strings = (
+          'SELECT r.RideNo FROM Rides r WHERE r.RideId = :RideId')
+      end
+    end
+  end
+  object raCodeModule1: TraCodeModule
+    object raProgramInfo1: TraProgramInfo
+      raClassName = 'TraEventHandler'
+      raProgram.ProgramName = 'Image2OnPrint'
+      raProgram.ProgramType = ttProcedure
+      raProgram.Source =
+        'procedure Image2OnPrint;'#13#10'begin'#13#10'  GdxSignatureToPicture(CMR['#39'ToSig' +
+        'nature'#39'], Image2.Picture);'#13#10'  Label1.Caption := Rit['#39'RideNo'#39'];'#13#10'end;'#13#10
+      raProgram.ComponentName = 'Image2'
+      raProgram.EventName = 'OnPrint'
+      raProgram.EventID = 32
+    end
+  end
+  object ppDesignLayers1: TppDesignLayers
+    object ppDesignLayer1: TppDesignLayer
+      UserName = 'Foreground'
+      LayerType = ltBanded
+      Index = 0
+    end
+  end
+end

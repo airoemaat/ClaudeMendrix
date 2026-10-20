@@ -1,0 +1,257 @@
+object TppReport
+  AutoStop = False
+  DataPipeline = ppRit
+  PrinterSetup.BinName = 'Default'
+  PrinterSetup.DocumentName = 'Ritlijst'
+  PrinterSetup.PaperName = 'A4'
+  PrinterSetup.PrinterName = 'Default'
+  PrinterSetup.SaveDeviceSettings = False
+  PrinterSetup.mmMarginBottom = 6350
+  PrinterSetup.mmMarginLeft = 6350
+  PrinterSetup.mmMarginRight = 6350
+  PrinterSetup.mmMarginTop = 6350
+  PrinterSetup.mmPaperHeight = 297000
+  PrinterSetup.mmPaperWidth = 210000
+  PrinterSetup.mmPaperBin = 0
+  Template.Format = ftASCII
+  Units = utMillimeters
+  ArchiveFileName = '($MyDocuments)\ReportArchive.raf'
+  DeviceType = 'Screen'
+  OutlineSettings.CreateNode = True
+  OutlineSettings.CreatePageNodes = True
+  OutlineSettings.Enabled = True
+  OutlineSettings.Visible = True
+  PDFSettings.EmbedFontOptions = [efUseSubset]
+  PDFSettings.EncryptSettings.AllowCopy = True
+  ShowAutoSearchDialog = True
+  Version = '22.02'
+  mmColumnWidth = 0
+  DataPipelineName = 'Rit'
+  object ppHeaderBand1: TppHeaderBand
+    Background.Brush.Style = bsClear
+    mmBottomOffset = 0
+    mmHeight = 30000
+    mmPrintPosition = 0
+    object ppLabel1: TppLabel
+      DesignLayer = ppDesignLayer1
+      UserName = 'Label1'
+      Caption = 'RITLIJST'
+      Font.Charset = DEFAULT_CHARSET
+      Font.Color = clBlack
+      Font.Name = 'Arial'
+      Font.Size = 14
+      Font.Style = [fsBold]
+      Transparent = True
+      mmHeight = 5800
+      mmLeft = 80000
+      mmTop = 2000
+      mmWidth = 30000
+      BandType = 0
+      LayerName = Foreground
+    end
+    object ppDBText1: TppDBText
+      DesignLayer = ppDesignLayer1
+      UserName = 'DBText1'
+      DataField = 'RideNo'
+      DataPipeline = ppRit
+      DisplayFormat = 'ARR0'
+      Font.Name = 'Arial'
+      Font.Size = 10
+      Transparent = True
+      DataPipelineName = 'Rit'
+      mmHeight = 4500
+      mmLeft = 160000
+      mmTop = 9000
+      mmWidth = 30000
+      BandType = 0
+      LayerName = Foreground
+    end
+  end
+  object ppDetailBand1: TppDetailBand
+    Background1.Brush.Style = bsClear
+    Background2.Brush.Style = bsClear
+    PrintHeight = phDynamic
+    mmBottomOffset = 0
+    mmHeight = 20000
+    mmPrintPosition = 0
+    object ppDBText2: TppDBText
+      DesignLayer = ppDesignLayer1
+      UserName = 'DBText2'
+      DataField = 'LocName'
+      DataPipeline = ppRit
+      DataPipelineName = 'Rit'
+      mmHeight = 4500
+      mmLeft = 20000
+      mmTop = 1000
+      mmWidth = 80000
+      BandType = 4
+      LayerName = Foreground
+    end
+  end
+  object ppFooterBand1: TppFooterBand
+    Background.Brush.Style = bsClear
+    mmBottomOffset = 0
+    mmHeight = 7000
+    mmPrintPosition = 0
+    object ppSystemVariable1: TppSystemVariable
+      DesignLayer = ppDesignLayer1
+      UserName = 'SystemVariable1'
+      VarType = vtPageSetDesc
+      mmHeight = 4000
+      mmLeft = 170000
+      mmTop = 1000
+      mmWidth = 25000
+      BandType = 8
+      LayerName = Foreground
+    end
+  end
+  object ppGroup1: TppGroup
+    BreakName = 'RideId'
+    DataPipeline = ppRit
+    GroupFileSettings.NewFile = False
+    KeepTogether = True
+    NewPage = True
+    OutlineSettings.CreateNode = True
+    ReprintOnSubsequentPage = True
+    DataPipelineName = 'Rit'
+    mmNewColumnThreshold = 0
+    mmNewPageThreshold = 0
+    object ppGroupHeaderBand1: TppGroupHeaderBand
+      Background.Brush.Style = bsClear
+      mmBottomOffset = 0
+      mmHeight = 0
+      mmPrintPosition = 0
+    end
+    object ppGroupFooterBand1: TppGroupFooterBand
+      Background.Brush.Style = bsClear
+      HideWhenOneDetail = False
+      mmBottomOffset = 0
+      mmHeight = 6000
+      mmPrintPosition = 0
+      object ppDBCalc1: TppDBCalc
+        DesignLayer = ppDesignLayer1
+        UserName = 'DBCalc1'
+        DataField = 'Weight'
+        DataPipeline = ppRit
+        DisplayFormat = '#,##0.0'
+        ResetGroup = ppGroup1
+        DataPipelineName = 'Rit'
+        mmHeight = 4000
+        mmLeft = 100000
+        mmTop = 1000
+        mmWidth = 20000
+        BandType = 5
+        GroupNo = 0
+        LayerName = Foreground
+      end
+    end
+  end
+  object daDataModule1: TdaDataModule
+    object daADOQueryDataView1: TdaADOQueryDataViewGdx
+      UserName = 'Query_Rit'
+      Height = 400
+      Left = 10
+      NameColumnWidth = 105
+      SizeColumnWidth = 35
+      SortMode = 0
+      Top = 10
+      TypeColumnWidth = 52
+      Width = 200
+      AutoSearchTabOrder = 0
+      object ppRit: TppChildDBPipeline
+        AutoCreateFields = False
+        UserName = 'Rit'
+        object ppRitppField1: TppField
+          FieldAlias = 'RideId'
+          FieldName = 'RideId'
+          FieldLength = 0
+          DataType = dtInteger
+          DisplayWidth = 10
+          Position = 0
+          TableName = 'Rides'
+        end
+        object ppRitppField2: TppField
+          FieldAlias = 'LocName'
+          FieldName = 'LocName'
+          FieldLength = 60
+          DisplayWidth = 60
+          Position = 1
+        end
+      end
+      object daSQL1: TdaSQL
+        DatabaseName = 'MainDb'
+        DatabaseType = dtMSSQLServer
+        DataPipelineName = 'Rit'
+        EditSQLAsText = True
+        IsCaseSensitive = False
+        LinkType = ltMagicSQL
+        MaxSQLFieldAliasLength = 25
+        SQLText.Strings = (
+          'SELECT r.RideId, r.RideNo, t.LocName, t.Weight'
+          'FROM Rides r'
+          'JOIN ordsubtask t ON t.RideId = r.RideId'
+          'WHERE r.RideId IN (-1,-2,-3) AND (:Depot = '#39'-1'#39' OR r.Depot = :Depot)'
+          'ORDER BY t.OrderedByRide')
+        SQLType = sqSQL1
+        object TdaField
+          ChildType = 7
+          Alias = 'RideId'
+          DataType = dtInteger
+          DisplayWidth = 10
+          FieldAlias = 'RideId'
+          FieldName = 'RideId'
+          FieldLength = 0
+          SQLFieldName = 'RideId'
+          TableAlias = 'r'
+          TableName = 'Rides'
+          TableSQLAlias = 'r'
+        end
+      end
+    end
+  end
+  object raCodeModule1: TraCodeModule
+    object raProgramInfo1: TraProgramInfo
+      raClassName = 'TraEventHandler'
+      raProgram.ProgramName = 'ReportOnInitializeParameters'
+      raProgram.ProgramType = ttProcedure
+      raProgram.Source =
+        'procedure ReportOnInitializeParameters(var aCancel: Boolean);'#13#10'b' +
+        'egin'#13#10'  Depot.Value := '#39'-1'#39';'#13#10'end;'#13#10
+      raProgram.ComponentName = 'Report'
+      raProgram.EventName = 'OnInitializeParameters'
+      raProgram.EventID = 136
+      raProgram.CaretPos = (
+        6
+        2)
+    end
+    object raProgramInfo2: TraProgramInfo
+      raClassName = 'TraEventHandler'
+      raProgram.ProgramName = 'Label1OnGetText'
+      raProgram.ProgramType = ttProcedure
+      raProgram.Source =
+        'procedure Label1OnGetText(var Text: String);'#13#10'begin'#13#10'  Text := Rit['#39 +
+        'RideNo'#39'];'#13#10'end;'#13#10
+      raProgram.ComponentName = 'Label1'
+      raProgram.EventName = 'OnGetText'
+      raProgram.EventID = 53
+    end
+  end
+  object ppDesignLayers1: TppDesignLayers
+    object ppDesignLayer1: TppDesignLayer
+      UserName = 'Foreground'
+      LayerType = ltBanded
+      Index = 0
+    end
+  end
+  object ppParameterList1: TppParameterList
+    object ppParameter1: TppParameter
+      AutoSearchSettings.Enabled = True
+      AutoSearchSettings.LogicalPrefix = []
+      AutoSearchSettings.Mandatory = False
+      AutoSearchSettings.SearchExpression = '-1'
+      DataType = dtString
+      Value = '-1'
+      UserName = 'Depot'
+    end
+  end
+end
