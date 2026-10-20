@@ -11,6 +11,7 @@ Gebruik:
     python exact_mont_orders.py --json                # als JSON
     python exact_mont_orders.py kolommen              # kolommen van orkrg tonen (notitieveld zoeken)
     python exact_mont_orders.py kolommen --order 5281930   # met de waarden van één order
+    python exact_mont_orders.py zoektekst --tekst "3085112 / Productie"   # waar staat deze tekst?
 
 Alleen lezen:
 - er worden uitsluitend vaste SELECT-statements uitgevoerd (met controle vooraf);
@@ -137,6 +138,30 @@ def find_notes_column(db, cfg):
     return None
 
 
+def find_text(db, text, log=print):
+    """Zoekt in alle tekstkolommen van de database naar text (alleen SELECT)."""
+    columns = db.select(
+        "SELECT TABLE_NAME, COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+        "WHERE TABLE_SCHEMA = 'dbo' AND DATA_TYPE IN ('text', 'ntext', 'varchar', 'nvarchar') "
+        "AND (CHARACTER_MAXIMUM_LENGTH = -1 OR CHARACTER_MAXIMUM_LENGTH >= 60) "
+        "AND TABLE_NAME IN (SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_TYPE = 'BASE TABLE') "
+        "ORDER BY TABLE_NAME, COLUMN_NAME")
+    hits = []
+    for col in columns:
+        table, column = col["TABLE_NAME"], col["COLUMN_NAME"]
+        if "]" in table or "]" in column:
+            continue
+        try:
+            found = db.select(f"SELECT COUNT(*) AS n FROM [{table}] WHERE [{column}] LIKE ?", (f"%{text}%",))
+        except Exception as e:  # bijv. geen leesrechten op een tabel
+            log(f"  overgeslagen {table}.{column}: {e}")
+            continue
+        if found[0]["n"]:
+            hits.append((table, column, found[0]["n"]))
+            log(f"  gevonden: {table}.{column} ({found[0]['n']} rij(en))")
+    return hits
+
+
 def has_addresses_table(db):
     cols = {r["COLUMN_NAME"].lower() for r in columns_of(db, "Addresses")}
     return {"account", "type", "addressline1", "postcode", "city", "country", "main"} <= cols
@@ -236,10 +261,11 @@ def write_csv(rows, path):
 
 def main():
     parser = argparse.ArgumentParser(description="Exact Globe Next: orders met leveringswijze MONT (read-only)")
-    parser.add_argument("actie", nargs="?", default="orders", choices=["orders", "kolommen"])
+    parser.add_argument("actie", nargs="?", default="orders", choices=["orders", "kolommen", "zoektekst"])
     parser.add_argument("--vanaf", type=date.fromisoformat, help="alleen orders met orderdatum vanaf JJJJ-MM-DD")
     parser.add_argument("--csv", metavar="BESTAND", help="resultaat als CSV opslaan")
     parser.add_argument("--json", action="store_true", help="resultaat als JSON tonen")
+    parser.add_argument("--tekst", help="bij zoektekst: de tekst die je zoekt, bijv. een stuk van een notitie")
     parser.add_argument("--order", help="bij kolommen: ook de waarden van dit verkoopordernummer tonen")
     args = parser.parse_args()
 
@@ -247,6 +273,14 @@ def main():
     try:
         db = ReadOnlyDb(cfg)
         try:
+            if args.actie == "zoektekst":
+                if not args.tekst:
+                    raise ExactError("Geef --tekst op, bijv. --tekst \"3085112 / Productie\"")
+                print(f"Zoeken naar '{args.tekst}' in alle tekstkolommen (kan even duren)...")
+                hits = find_text(db, args.tekst)
+                if not hits:
+                    print("Niet gevonden.")
+                return 0
             if args.actie == "kolommen":
                 values = {}
                 if args.order:
