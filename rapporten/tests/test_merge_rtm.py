@@ -39,6 +39,11 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(top.count("TdaDataModule"), 1)
         self.assertEqual(top.count("TppParameterList"), 1)
         self.assertIsNone(root.prop("DataPipeline"))
+        self.assertEqual(root.prop("AutoStop").value, "True")
+        child_a = next(o for o in root.walk() if o.name == "ppChildReportA")
+        self.assertEqual(child_a.prop("AutoStop").value, "False")
+        db = next(o for o in root.walk() if o.name == "ppDBText1Cmr")
+        self.assertEqual(db.prop("DataPipeline").value, "daADOQueryDataView1Cmr.ppCMR")
 
     def test_renames_and_references(self):
         _, root = self.merge()
@@ -48,7 +53,7 @@ class MergeTests(unittest.TestCase):
         self.assertIn("ppImage1", names)  # geen botsing, niet hernoemd
         src = next(o for o in child_b.walk() if o.name == "raProgramInfo1Cmr")
         code = src.prop("raProgram.Source").string_value()
-        self.assertIn("Label1Cmr.Caption := RitCmr['RideNo']", code)
+        self.assertIn("Label1.Caption := RitCmr['RideNo']", code)  # UserNames per rapport
         self.assertIn("CMR['ToSignature']", code)
 
     def test_main_events_move_to_main(self):
@@ -59,16 +64,19 @@ class MergeTests(unittest.TestCase):
 
     def test_key_rewrite(self):
         _, root = self.merge("order")
-        sql = next(o for o in root.walk() if o.name == "daSQL1Cmr")
+        view = next(o for o in root.walk() if o.name == "daADOQueryDataView1Cmr")
+        sql = next(o for o in view.children() if o.cls == "TdaSQL")
         joined = " ".join(sql.prop("SQLText.Strings").string_list())
         self.assertIn("o.OrderId IN (SELECT xt.OrderId FROM ordsubtask xt "
                       "WHERE xt.RideId IN (-1,-2,-3))", joined)
-        sql_a = next(o for o in root.walk() if o.name == "daSQL1")
+        sql_a = next(o for o in root.walk() if o.name == "daSQL1"
+                     and "r.RideId" in " ".join(o.prop("SQLText.Strings").string_list()))
         self.assertIn("r.RideId IN (-1,-2,-3)", " ".join(sql_a.prop("SQLText.Strings").string_list()))
 
     def test_no_key_rewrite(self):
         _, root = self.merge(None)
-        sql = next(o for o in root.walk() if o.name == "daSQL1Cmr")
+        view = next(o for o in root.walk() if o.name == "daADOQueryDataView1Cmr")
+        sql = next(o for o in view.children() if o.cls == "TdaSQL")
         self.assertIn("o.OrderId IN (-1,-2,-3)", " ".join(sql.prop("SQLText.Strings").string_list()))
 
     def test_unchanged_props_keep_formatting(self):
@@ -81,7 +89,8 @@ class MergeTests(unittest.TestCase):
             out = os.path.join(tmp, "samen.rtm")
             rc = m.main([A, B, "-o", out, "--b-key", "order", "--converter", os.path.join(tmp, "x")])
             self.assertEqual(rc, 0)
-            self.assertTrue(os.path.isfile(out + ".txt"))
+            with open(out, "rb") as f:
+                self.assertTrue(f.read().startswith(b"object TppReport"))
 
 
 if __name__ == "__main__":

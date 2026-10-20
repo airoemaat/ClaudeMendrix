@@ -20,11 +20,12 @@ wordt gestart (de geselecteerde keys zijn dan rit-ids):
     task:   X IN (SELECT xt.OrdSubTaskNo FROM ordsubtask xt WHERE xt.RideId IN (-1,-2,-3))
 
 Invoer mag binair (TPF0) of tekst zijn. Binaire bestanden worden omgezet met
-RtmConverter.exe (alleen op Windows). Uitvoer is altijd tekst (``.rtm.txt``) en,
-als RtmConverter beschikbaar is, ook een binaire ``.rtm`` om te uploaden.
+RtmConverter.exe (alleen op Windows). De uitvoer is een .rtm in tekstformaat
+(Template.Format = ftASCII, net als de MendriX-rapporten zelf); met ``--binair``
+wordt hij via RtmConverter binair gemaakt.
 
 Gebruik:
-    python merge_rtm.py Ritlijst.rtm CMR.rtm -o "Ritlijst + CMR.rtm" --b-key order
+    python merge_rtm.py Ritlijst.rtm CMR.rtm -o "Ritlijst met CMR.rtm"
 """
 
 import argparse
@@ -41,9 +42,8 @@ DEFAULT_CONVERTER = r"C:\AI\RtmConverter\RtmConverter.exe"
 
 # Properties die van TppReport naar TppChildReport mogen; de rest bestaat alleen
 # op het hoofdrapport en geeft anders een leesfout.
-CHILD_PROPS = ("PrinterSetup.", "Units", "Version", "mmColumnWidth", "Columns",
-               "ColumnPositions", "DataPipeline", "DataPipelineName", "AutoStop",
-               "NoDataBehaviors")
+CHILD_PROPS = ("PrinterSetup.", "Units", "Version", "mmColumnWidth", "DataPipeline",
+               "DataPipelineName", "AutoStop", "Template.SaveTo")
 # Report-events die bij het hoofdrapport horen (parameters zitten daar).
 MAIN_EVENTS = {"OnInitializeParameters", "OnGetAutoSearchValues",
                "BeforeAutoSearchDialogCreate", "OnAutoSearchDialogCreate",
@@ -359,9 +359,38 @@ def find_converter(arg):
 
 # ----------------------------------------------------------------- merge
 
+def scoped(root):
+    """(object, scope): 'report' buiten de datamodule, 'dm' voor datasets,
+    'local' voor alles binnen een dataset."""
+    def rec(o, scope):
+        yield o, scope
+        for c in o.children():
+            if scope == "report":
+                cs = "dm" if o.cls == "TdaDataModule" else "report"
+            else:
+                cs = "local"
+            yield from rec(c, cs)
+    yield from rec(root, "report")
+
+
+def is_data(o, scope):
+    """Objecten waarvan de UserName in het hele rapport uniek moet zijn."""
+    return scope != "report" or o.cls == "TppParameter"
+
+
+def rap_replace(src, umap):
+    """Vervangt hele woorden in RAP-code, niet binnen '...'-strings."""
+    if not umap:
+        return src
+    parts = re.split(r"('(?:[^']|'')*')", src)
+    pat = re.compile(r"(?<![\w.])(" + "|".join(map(re.escape, umap)) + r")(?!\w)")
+    return "".join(pt if pt.startswith("'") else pat.sub(lambda m: umap[m.group(1)], pt)
+                   for pt in parts)
+
+
 class Merger:
-    def __init__(self, a, b, suffix, b_key, label_a, label_b):
-        self.a, self.b = a, b
+    def __init__(self, a, b, suffix, b_key, label_a, label_b, title=None):
+        self.a, self.b, self.title = a, b, title
         self.suffix, self.b_key = suffix, b_key
         self.label_a, self.label_b = label_a, label_b
         self.log, self.warn = [], []
@@ -379,41 +408,60 @@ class Merger:
         return new
 
     def rename_b(self, reserved_names, reserved_users):
-        names_a = {o.name for o in self.a.walk() if o.name} | reserved_names
-        users_a = {o.username() for o in self.a.walk() if o.username()} | reserved_users
-        names_b = [o.name for o in self.b.walk() if o.name]
-        users_b = [o.username() for o in self.b.walk() if o.username()]
-        taken_n, taken_u = names_a | set(names_b), users_a | set(users_b)
-        nmap = {n: self.unique(n, taken_n) for n in dict.fromkeys(names_b) if n in names_a}
-        umap = {u: self.unique(u, taken_u) for u in dict.fromkeys(users_b) if u in users_a}
-        params_b = {o.username() for o in self.b.walk() if o.cls == "TppParameter"}
+        """Hernoemt in rapport B alleen wat echt botst met rapport A.
+
+        Componentnamen zijn uniek per scope: rapportcomponenten (banden, labels,
+        subreports, lagen, code) in het hele rapport, datasets binnen de datamodule,
+        en alles daarbinnen (pipelines, velden, TdaSQL) per dataset. UserNames van
+        rapportcomponenten mogen per (sub)rapport dubbel zijn; die van datasets,
+        pipelines en parameters niet.
+        """
+        sa, sb = list(scoped(self.a)), list(scoped(self.b))
+
+        def names(sc, scope):
+            return [o.name for o, s in sc if s == scope and o.name]
+
+        def data_users(sc):
+            return [o.username() for o, s in sc if o.username() and is_data(o, s)]
+
+        rep_a = set(names(sa, "report")) | reserved_names
+        dv_a = set(names(sa, "dm"))
+        users_a = set(data_users(sa)) | reserved_users
+        taken = rep_a | dv_a | set(names(sb, "report")) | set(names(sb, "dm"))
+        nmap = {n: self.unique(n, taken) for n in dict.fromkeys(names(sb, "report")) if n in rep_a}
+        dvmap = {n: self.unique(n, taken) for n in dict.fromkeys(names(sb, "dm")) if n in dv_a}
+        taken_u = users_a | {o.username() for o, _ in sb if o.username()}
+        umap = {u: self.unique(u, taken_u) for u in dict.fromkeys(data_users(sb)) if u in users_a}
+        params_b = {o.username() for o, _ in sb if o.cls == "TppParameter"}
         pmap = {k: v for k, v in umap.items() if k in params_b}
 
-        for o in self.b.walk():
-            o.name = nmap.get(o.name, o.name)
+        for o, s in sb:
+            if s == "report":
+                o.name = nmap.get(o.name, o.name)
+            elif s == "dm":
+                o.name = dvmap.get(o.name, o.name)
             for p in o.props():
-                self.rename_prop(p, nmap, umap, pmap)
-        self.log.append(f"rapport B: {len(nmap)} componentnamen en {len(umap)} "
-                        f"UserNames hernoemd (achtervoegsel '{self.suffix}')")
+                self.rename_prop(o, s, p, nmap, dvmap, umap, pmap)
+        self.log.append(f"rapport B: {len(nmap)} componentnamen, {len(dvmap)} datasetnamen en "
+                        f"{len(umap)} dataset-/pipelinenamen hernoemd (achtervoegsel '{self.suffix}')")
         for k, v in umap.items():
-            self.log.append(f"  UserName {k!r} -> {v!r}")
+            self.log.append(f"  {k!r} -> {v!r}")
 
-    def rename_prop(self, p, nmap, umap, pmap):
-        if (p.name == "UserName" or p.name.endswith("PipelineName")
-                or p.name.endswith("UserName") or p.name == "raProgram.ComponentName"):
+    def rename_prop(self, o, scope, p, nmap, dvmap, umap, pmap):
+        if p.name == "UserName":
+            if is_data(o, scope):
+                s = p.string_value()
+                if s in umap:
+                    p.set_string(umap[s])
+            return
+        if p.name.endswith("PipelineName") or p.name.endswith("UserName"):
             s = p.string_value()
             if s in umap:
                 p.set_string(umap[s])
             return
-        if p.name == "LayerName":
-            if p.value in umap:
-                p.set_lines([umap[p.value]])
-            return
         if p.name == "raProgram.Source":
             src = p.string_value() or ""
-            new = src
-            for old, nw in umap.items():
-                new = re.sub(rf"(?<![\w.]){re.escape(old)}(?!\w)", nw, new)
+            new = rap_replace(src, umap)
             if new != src:
                 p.set_string(new)
             return
@@ -424,14 +472,21 @@ class Merger:
             if new != items:
                 p.set_string_list(new)
             return
-        # objectverwijzingen (DataPipeline = ppX, ResetGroup = ppGroup1, DesignLayer = ...)
+
+        # objectverwijzingen: DesignLayer = ppDesignLayer1, ResetGroup = ppGroup1,
+        # DataPipeline = daADOQueryDataViewGdx3.ordsubtask (dataset.pipeline)
+        def ref(m):
+            head, tail = m.group(1), m.group(2)
+            if tail:
+                return dvmap.get(head, head) + tail
+            return nmap.get(head, head) if scope == "report" else head
+
         first = p.lines[0].split("=", 1)
-        lines = [first[1]] + p.lines[1:]
         out = []
-        for ln in lines:
+        for ln in [first[1]] + p.lines[1:]:
             out.append("".join(
                 t if k == "str" else re.sub(
-                    r"(?<![\w.#$])([A-Za-z_]\w*)", lambda m: nmap.get(m.group(1), m.group(1)), t)
+                    r"(?<![\w.#$])([A-Za-z_]\w*)(\.[A-Za-z_]\w*)?", ref, t)
                 for k, t in scan(ln)))
         p.lines = [first[0] + "=" + out[0]] + out[1:]
 
@@ -512,8 +567,8 @@ class Merger:
         child_a, dm_a, par_a, drop_a = self.split(self.a, "ppChildReportA", main_programs)
         child_b, dm_b, par_b, drop_b = self.split(self.b, "ppChildReportB", main_programs)
         if drop_b:
-            self.log.append("rapport B: hoofdrapport-instellingen vervallen: "
-                            + ", ".join(sorted(set(drop_b))))
+            self.log.append(f"rapport B: {len(set(drop_b))} instellingen van het hoofdrapport "
+                            f"(PDF, e-mail, preview e.d.) vervallen; die van rapport A gelden")
 
         dm = dm_a or dm_b
         if dm is None:
@@ -526,8 +581,20 @@ class Merger:
 
         width = _page_width(self.a)
         main = Obj("object", self.a.name, "TppReport", self.a.rest)
-        main.items = [p for p in self.a.props()
+        main.items = [Prop(p.name, list(p.lines)) for p in self.a.props()
                       if p.name not in ("DataPipeline", "DataPipelineName")]
+        # zonder pipeline moet AutoStop aan staan, anders blijft de detailband printen
+        auto = next((p for p in main.items if p.name == "AutoStop"), None)
+        if auto:
+            auto.set_lines(["True"])
+        else:
+            main.items.insert(0, Prop("AutoStop", ["AutoStop = True"]))
+        if self.title:
+            for p in main.props():
+                if p.name == "Template.DatabaseSettings.Name":
+                    p.set_string(self.title)
+                elif p.name == "Template.FileName":
+                    p.set_string(self.title + ".rtm")
         band = Obj("object", "ppDetailBandMain", "TppDetailBand", items=[
             Prop("PrintHeight", ["PrintHeight = phDynamic"]),
             Prop("mmBottomOffset", ["mmBottomOffset = 0"]),
@@ -578,13 +645,13 @@ def _subreport(name, label, child, top, width):
         Prop("ExpandAll", ["ExpandAll = False"]),
         Prop("NewPrintJob", ["NewPrintJob = False"]),
         Prop("OutlineSettings.CreateNode", ["OutlineSettings.CreateNode = True"]),
+        Prop("ParentPrinterSetup", ["ParentPrinterSetup = False"]),
         Prop("PrintBehavior", ["PrintBehavior = pbSection"]),
         Prop("TraverseAllData", ["TraverseAllData = False"]),
     ])
-    for pn in ("DataPipeline", "DataPipelineName"):
-        p = child.prop(pn)
-        if p:
-            sub.items.append(Prop(pn, list(p.lines)))
+    p = child.prop("DataPipelineName")
+    if p:
+        sub.items.append(Prop(p.name, list(p.lines)))
     sub.items += [
         Prop("mmHeight", ["mmHeight = 5027"]),
         Prop("mmLeft", ["mmLeft = 0"]),
@@ -603,32 +670,48 @@ def _subreport(name, label, child, top, width):
 
 # -------------------------------------------------------------- controle
 
-REF_PROPS = ("DataPipeline", "DesignLayer", "ResetGroup", "ShiftRelativeTo",
-             "MasterDataPipeline", "DataSource", "ParentDataPipeline", "Report")
+REF_PROPS = ("DesignLayer", "ResetGroup", "ShiftRelativeTo", "ResetComponent")
 
 
 def check(root):
-    """Structurele controle: unieke namen en verwijzingen die bestaan."""
-    errors, names, users = [], {}, {}
-    for o in root.walk():
-        if o.name:
-            if o.name in names:
-                errors.append(f"dubbele componentnaam {o.name}")
-            names[o.name] = o
-    pipes = {o.username() for o in root.walk() if o.cls.endswith("DBPipeline") or
-             o.cls == "TppJITPipeline"}
-    layers = {o.username() for o in root.walk() if o.cls == "TppDesignLayer"}
-    for o in root.walk():
+    """Structurele controle: unieke namen per scope en verwijzingen die bestaan."""
+    errors, sc = [], list(scoped(root))
+
+    def uniq(items, what):
+        seen = set()
+        for n in items:
+            if n in seen:
+                errors.append(f"dubbele {what} {n!r}")
+            seen.add(n)
+        return seen
+
+    rep = uniq([o.name for o, s in sc if s == "report" and o.name], "componentnaam")
+    dvs = {o.name: o for o, s in sc if s == "dm"}
+    uniq([o.name for o, s in sc if s == "dm"], "datasetnaam")
+    pipes = uniq([o.username() for o, s in sc if s == "local" and o.cls.endswith("Pipeline")],
+                 "pipelinenaam")
+    views = uniq([o.username() for o, s in sc if s == "dm"], "datasetnaam (UserName)")
+    for o, s in sc:
         for p in o.props():
-            if p.name in REF_PROPS and len(p.lines) == 1 and re.fullmatch(r"\w+", p.value):
-                if p.value not in names and p.value not in ("True", "False", "nil"):
-                    errors.append(f"{o.name}.{p.name} verwijst naar onbekende {p.value}")
-            elif p.name in ("DataPipelineName", "MasterDataPipelineName") and o.cls not in ("TdaSQL",):
-                s = p.string_value()
-                if s and s not in pipes:
-                    errors.append(f"{o.name}.{p.name} verwijst naar onbekende pipeline {s!r}")
-            elif p.name == "LayerName" and p.value not in layers:
-                errors.append(f"{o.name}.LayerName verwijst naar onbekende laag {p.value}")
+            if len(p.lines) != 1:
+                continue
+            v = p.value
+            if p.name == "DataPipeline":
+                m = re.fullmatch(r"(\w+)\.(\w+)", v)
+                if not m or m.group(1) not in dvs or \
+                        m.group(2) not in [c.name for c in dvs[m.group(1)].children()]:
+                    errors.append(f"{o.name}.DataPipeline verwijst naar onbekende {v}")
+            elif p.name in REF_PROPS and s == "report" and re.fullmatch(r"\w+", v):
+                if v not in rep:
+                    errors.append(f"{o.name}.{p.name} verwijst naar onbekende {v}")
+            elif p.name in ("DataPipelineName", "MasterDataPipelineName"):
+                if p.string_value() and p.string_value() not in pipes:
+                    errors.append(f"{o.name}.{p.name} verwijst naar onbekende pipeline "
+                                  f"{p.string_value()!r}")
+            elif p.name == "MasterDataViewUserName":
+                if p.string_value() and p.string_value() not in views:
+                    errors.append(f"{o.name}.MasterDataViewUserName verwijst naar onbekende "
+                                  f"dataset {p.string_value()!r}")
     return errors
 
 
@@ -638,13 +721,16 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("rapport_a", help="eerste rapport (bijv. Ritlijst.rtm)")
     ap.add_argument("rapport_b", help="tweede rapport (bijv. CMR.rtm)")
-    ap.add_argument("-o", "--out", required=True, help="uitvoer .rtm (tekst komt in .rtm.txt)")
+    ap.add_argument("-o", "--out", required=True, help="uitvoer .rtm (tekstformaat, zoals de MendriX-rapporten zelf)")
     ap.add_argument("--b-key", choices=["order", "task"],
                     help="zet IN (-1,-2,-3) in rapport B om naar een filter op de geselecteerde "
                          "ritten; 'order' als B op order-id filtert, 'task' bij taak-id")
     ap.add_argument("--suffix", default="Cmr", help="achtervoegsel voor dubbele namen in B")
     ap.add_argument("--label-a", default="SubRitlijst", help="UserName van subreport A")
     ap.add_argument("--label-b", default="SubCMR", help="UserName van subreport B")
+    ap.add_argument("--titel", help="rapportnaam (standaard de naam van het uitvoerbestand)")
+    ap.add_argument("--binair", action="store_true",
+                    help="uitvoer binair maken met RtmConverter.exe (standaard: tekst)")
     ap.add_argument("--converter", help=f"pad naar RtmConverter.exe (standaard {DEFAULT_CONVERTER})")
     args = ap.parse_args(argv)
 
@@ -653,30 +739,32 @@ def main(argv=None):
         with tempfile.TemporaryDirectory() as tmp:
             a = parse(read_rtm(args.rapport_a, converter, tmp))
             b = parse(read_rtm(args.rapport_b, converter, tmp))
-            m = Merger(a, b, args.suffix, args.b_key, args.label_a, args.label_b)
+            title = args.titel or os.path.splitext(os.path.basename(args.out))[0]
+            m = Merger(a, b, args.suffix, args.b_key, args.label_a, args.label_b, title)
             merged = m.build()
             text = "\r\n".join(dump(merged)) + "\r\n"
             parse(text)  # moet opnieuw te lezen zijn
             errors = check(merged)
 
             out = args.out
-            txt = out + ".txt" if out.lower().endswith(".rtm") else out + ".rtm.txt"
-            with open(txt, "wb") as f:
-                f.write(text.encode(ENC))
             for line in m.log:
                 print(line)
             for w in m.warn:
                 print("LET OP:", w)
             for e in errors:
                 print("FOUT:", e)
-            print(f"tekst geschreven: {txt}")
-
-            if converter and out.lower().endswith(".rtm"):
+            if args.binair:
+                if not converter:
+                    raise RtmError("--binair vraagt om RtmConverter.exe (zie --converter)")
+                txt = out + ".txt"
+                with open(txt, "wb") as f:
+                    f.write(text.encode(ENC))
                 run_converter(converter, txt, "-tobin", out)
-                print(f"binair geschreven: {out} ({os.path.getsize(out)} bytes)")
-            elif not converter:
-                print(f"RtmConverter niet gevonden; zet om met: "
-                      f"RtmConverter.exe \"{txt}\" -tobin -out:\"{out}\"")
+                print(f"binair geschreven: {out} ({os.path.getsize(out)} bytes), tekst: {txt}")
+            else:
+                with open(out, "wb") as f:
+                    f.write(text.encode(ENC))
+                print(f"geschreven: {out} ({os.path.getsize(out)} bytes, tekstformaat)")
             return 1 if errors else 0
     except RtmError as e:
         print("FOUT:", e, file=sys.stderr)

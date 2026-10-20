@@ -1,6 +1,6 @@
 object TppReport
   AutoStop = False
-  DataPipeline = ppCMR
+  DataPipeline = daADOQueryDataView1.ppCMR
   PrinterSetup.BinName = 'Default'
   PrinterSetup.DocumentName = 'CMR'
   PrinterSetup.Orientation = poLandscape
@@ -55,7 +55,7 @@ object TppReport
       DesignLayer = ppDesignLayer1
       UserName = 'DBText1'
       DataField = 'FromName'
-      DataPipeline = ppCMR
+      DataPipeline = daADOQueryDataView1.ppCMR
       DataPipelineName = 'CMR'
       mmHeight = 4000
       mmLeft = 130000
@@ -77,7 +77,7 @@ object TppReport
   end
   object ppGroup1: TppGroup
     BreakName = 'OrderId'
-    DataPipeline = ppCMR
+    DataPipeline = daADOQueryDataView1.ppCMR
     NewPage = True
     DataPipelineName = 'CMR'
     object ppGroupHeaderBand1: TppGroupHeaderBand

@@ -1,6 +1,6 @@
 object TppReport
   AutoStop = False
-  DataPipeline = ppRit
+  DataPipeline = daADOQueryDataView1.ppRit
   PrinterSetup.BinName = 'Default'
   PrinterSetup.DocumentName = 'Ritlijst'
   PrinterSetup.PaperName = 'A4'
@@ -53,7 +53,7 @@ object TppReport
       DesignLayer = ppDesignLayer1
       UserName = 'DBText1'
       DataField = 'RideNo'
-      DataPipeline = ppRit
+      DataPipeline = daADOQueryDataView1.ppRit
       DisplayFormat = 'ARR0'
       Font.Name = 'Arial'
       Font.Size = 10
@@ -78,7 +78,7 @@ object TppReport
       DesignLayer = ppDesignLayer1
       UserName = 'DBText2'
       DataField = 'LocName'
-      DataPipeline = ppRit
+      DataPipeline = daADOQueryDataView1.ppRit
       DataPipelineName = 'Rit'
       mmHeight = 4500
       mmLeft = 20000
@@ -107,7 +107,7 @@ object TppReport
   end
   object ppGroup1: TppGroup
     BreakName = 'RideId'
-    DataPipeline = ppRit
+    DataPipeline = daADOQueryDataView1.ppRit
     GroupFileSettings.NewFile = False
     KeepTogether = True
     NewPage = True
@@ -132,7 +132,7 @@ object TppReport
         DesignLayer = ppDesignLayer1
         UserName = 'DBCalc1'
         DataField = 'Weight'
-        DataPipeline = ppRit
+        DataPipeline = daADOQueryDataView1.ppRit
         DisplayFormat = '#,##0.0'
         ResetGroup = ppGroup1
         DataPipelineName = 'Rit'
