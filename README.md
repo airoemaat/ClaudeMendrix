@@ -106,6 +106,7 @@ SQL Server-database van Exact Globe Next. Per order: verkoopnummer, "Levering aa
 ```bash
 pip install pyodbc                                 # plus "ODBC Driver 18 for SQL Server"
 python exact_mont_orders.py kolommen               # kolommen van orkrg (notitieveld controleren)
+python exact_mont_orders.py kolommen --order 5281930   # met de waarden van die order
 python exact_mont_orders.py                        # alle MONT-orders
 python exact_mont_orders.py --vanaf 2026-01-01 --csv mont.csv
 ```

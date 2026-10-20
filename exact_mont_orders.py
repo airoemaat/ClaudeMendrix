@@ -10,6 +10,7 @@ Gebruik:
     python exact_mont_orders.py --csv mont.csv        # als CSV (Excel, puntkomma)
     python exact_mont_orders.py --json                # als JSON
     python exact_mont_orders.py kolommen              # kolommen van orkrg tonen (notitieveld zoeken)
+    python exact_mont_orders.py kolommen --order 5281930   # met de waarden van één order
 
 Alleen lezen:
 - er worden uitsluitend vaste SELECT-statements uitgevoerd (met controle vooraf);
@@ -239,6 +240,7 @@ def main():
     parser.add_argument("--vanaf", type=date.fromisoformat, help="alleen orders met orderdatum vanaf JJJJ-MM-DD")
     parser.add_argument("--csv", metavar="BESTAND", help="resultaat als CSV opslaan")
     parser.add_argument("--json", action="store_true", help="resultaat als JSON tonen")
+    parser.add_argument("--order", help="bij kolommen: ook de waarden van dit verkoopordernummer tonen")
     args = parser.parse_args()
 
     cfg = load_config()
@@ -246,9 +248,20 @@ def main():
         db = ReadOnlyDb(cfg)
         try:
             if args.actie == "kolommen":
+                values = {}
+                if args.order:
+                    found = db.select("SELECT TOP 1 * FROM orkrg WHERE LTRIM(RTRIM(ordernr)) = ?",
+                                      (args.order.strip(),))
+                    if not found:
+                        raise ExactError(f"Order {args.order} niet gevonden in orkrg.")
+                    values = found[0]
                 for r in columns_of(db, "orkrg"):
                     length = f"({r['CHARACTER_MAXIMUM_LENGTH']})" if r["CHARACTER_MAXIMUM_LENGTH"] else ""
-                    print(f"{r['COLUMN_NAME']:<30} {r['DATA_TYPE']}{length}")
+                    line = f"{r['COLUMN_NAME']:<30} {r['DATA_TYPE'] + length:<18}"
+                    if args.order:
+                        value = clean(values.get(r["COLUMN_NAME"]))
+                        line += "" if value in (None, "") else str(value).replace("\r", " ").replace("\n", " ")[:80]
+                    print(line)
                 return 0
             rows = fetch_mont_orders(db, cfg, args.vanaf)
         finally:
