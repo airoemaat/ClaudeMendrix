@@ -174,8 +174,15 @@ uitbesteders: `Courier`/`Extern` = True, `IsActive` = True, `VehicleNo` 133, `Ad
 | VAT number / Chamber of commerce | **geen veld** in de koppeling → `nietOpgeslagen` + `waarschuwingen` |
 
 - Dubbelcontrole: `RequestEmployees` met `Search=<naam>`; zelfde naam (of naam + postcode) → 409.
-- `Number` is via `StoreEmployees` niet te zetten; MendriX maakt het kort na het aanmaken gelijk
-  aan het Id (gezien bij 2220 en 2228). Het 201-antwoord geeft daarom `nummer` = Id.
+- `Number` (veld Nummer) wordt **niet** door MendriX zelf gevuld; het Id is pas na het aanmaken bekend.
+  De workflow slaat de uitvoerder daarom twee keer op: eerst met `EmployeeId -1`, daarna met het
+  nieuwe Id en `Number` = Id (volledig record, want `StoreEmployees` overschrijft alles). Daarna leest
+  hij het record terug en meldt het echte nummer. Getest 27 oktober 2026: Id 2231 / 2232 → nummer 2231 / 2232.
+  (Een eerdere versie van deze README beweerde dat MendriX het nummer zelf zet; dat klopte niet,
+  het kwam doordat ik het nummer in een testaanroep zelf had meegestuurd.)
+- Uurtarief (`CostPerHour`): een verplicht getal. `<CostPerHour Content="Null">` en een leeg element
+  worden geweigerd (`MakeEoCoreFromObjectXml`); weglaten geeft `0.0`, net als bij de 259 bestaande
+  uitbesteders. Het is dus niet leeg te krijgen via de koppeling.
 - `StoreEmployees` schrijft het record zoals verstuurd: weggelaten velden worden leeg. Nooit een
   bestaande medewerker bijwerken zonder eerst het volledige record op te halen.
 - Handelsnr. en BTW nummer van een uitvoerder staan in MendriX op het medewerkerscherm, maar komen

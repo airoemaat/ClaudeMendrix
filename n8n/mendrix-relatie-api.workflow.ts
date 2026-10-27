@@ -515,13 +515,16 @@ if (dubbel) {
     error: 'Er bestaat al een uitvoerder met deze naam (of naam en postcode): ' + tag(dubbel, 'Name') + ' (Id ' + id + '). Er is niets aangemaakt.' } } }];
 }
 
-// 2. Nieuwe uitvoerder opslaan (EmployeeId -1).
+// 2. Nieuwe uitvoerder opslaan (EmployeeId -1) en daarna nogmaals met Number = het nieuwe Id.
+// MendriX vult het veld Nummer niet zelf; het Id is pas na het aanmaken bekend. StoreEmployees
+// schrijft het record zoals verstuurd, dus de tweede aanroep bevat het volledige record.
+// Het uurtarief (CostPerHour) is een verplicht getal: MendriX weigert een lege waarde, dus het blijft 0.
 const el = (name, v) => v ? '<' + name + '>' + esc(String(v).trim()) + '</' + name + '>' : '';
 const m = d.adres.match(/^(.+?)\\s+(\\d.*)$/);
 const [straat, huisnummer] = m ? [m[1], m[2]] : [d.adres, ''];
-const medewerker =
+const medewerker = (idWaarde, nummer) =>
   '<EoEmployeeMx Type="TEoEmployeeMx">' + el('Name', d.naam) +
-  '<EmployeeId Type="TEoKeyIntInfraMx"><Id>-1</Id></EmployeeId>' +
+  '<EmployeeId Type="TEoKeyIntInfraMx"><Id>' + idWaarde + '</Id></EmployeeId>' + el('Number', nummer) +
   '<AddressHome Type="TEoAddress">' + el('Name', d.naam) + el('Street', straat) + el('Number', huisnummer) +
     el('PostalCode', d.postcode) + el('Place', d.plaats) + el('Country', d.land === 'NL' ? 'Nederland' : d.land) + el('CountryCode', d.land) +
   '</AddressHome>' +
@@ -531,19 +534,35 @@ const medewerker =
   // Notes is een kort databaseveld; bij bestaande uitbesteders staat hier de bedrijfsnaam.
   el('Notes', d.naam.slice(0, 30)) +
   '<VehicleNo>133</VehicleNo></EoEmployeeMx>';
-const opgeslagen = await soap('<EoCustomLinkStoreEmployees Type="TEoCustomLinkStoreEmployees"><Data Type="TEoEmployeeMxList"><_TEoListBase_Items>' +
-  medewerker + '</_TEoListBase_Items></Data></EoCustomLinkStoreEmployees>');
+const opslaan = rec => soap('<EoCustomLinkStoreEmployees Type="TEoCustomLinkStoreEmployees"><Data Type="TEoEmployeeMxList"><_TEoListBase_Items>' +
+  rec + '</_TEoListBase_Items></Data></EoCustomLinkStoreEmployees>');
+const opgeslagen = await opslaan(medewerker(-1, ''));
 const id = Number((opgeslagen.match(/<Id>(\\d+)<\\/Id>/) || [])[1] || 0);
 if (!id || !/etNone/.test(opgeslagen)) throw new Error('Uitvoerder niet opgeslagen. Antwoord van MendriX: ' + opgeslagen.slice(0, 500));
 
-// MendriX zet het nummer kort na het aanmaken zelf gelijk aan het Id (waargenomen bij 2220 en 2228).
-// Btw en KvK hebben geen veld in de medewerker-koppeling (TEoEmployeeMx).
 const nietOpgeslagen = [];
+const waarschuwingen = [];
+try {
+  const tweede = await opslaan(medewerker(id, String(id)));
+  if (!/etNone/.test(tweede)) throw new Error(tweede.slice(0, 300));
+} catch (e) {
+  waarschuwingen.push('Uitvoerder aangemaakt, maar het nummer kon niet worden ingevuld: ' + e.message);
+}
+// Terugkijken wat er echt staat.
+let nummer = null;
+try {
+  const terug = await soap('<EoCustomLinkRequestEmployees Type="TEoCustomLinkRequestEmployees"><Nested>False</Nested>' +
+    '<Filter Type="TEoFilterEmployees"><Active>fsActiveBoth</Active><Administration>-2</Administration>' +
+    '<KeysExplicitAsCsv>' + id + '</KeysExplicitAsCsv></Filter></EoCustomLinkRequestEmployees>');
+  nummer = tag(terug, 'Number') || null;
+  if (!nummer) waarschuwingen.push('Het nummer van de uitvoerder is leeg gebleven; vul het zo nodig handmatig in.');
+} catch (e) { /* alleen controle */ }
+
+// Btw en KvK hebben geen veld in de medewerker-koppeling (TEoEmployeeMx).
 if (d.btw) nietOpgeslagen.push('uitvoerder.btw');
 if (d.kvk) nietOpgeslagen.push('uitvoerder.kvk');
-const waarschuwingen = nietOpgeslagen.length
-  ? ['Btw- en KvK-nummer kunnen niet via de koppeling worden opgeslagen; vul ze zo nodig handmatig in MendriX in.'] : [];
-return [{ json: { httpStatus: 201, body: { status: 'aangemaakt', soort: 'uitvoerder', id, nummer: String(id), naam: d.naam, nietOpgeslagen, waarschuwingen } } }];`
+if (nietOpgeslagen.length) waarschuwingen.push('Btw- en KvK-nummer kunnen niet via de koppeling worden opgeslagen; vul ze zo nodig handmatig in MendriX in.');
+return [{ json: { httpStatus: 201, body: { status: 'aangemaakt', soort: 'uitvoerder', id, nummer, naam: d.naam, nietOpgeslagen, waarschuwingen } } }];`
     }
   },
   output: [{ httpStatus: 201, body: { status: 'aangemaakt', soort: 'uitvoerder', id: 2228 } }]
