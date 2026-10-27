@@ -210,7 +210,7 @@ De inlog staat (net als bij test) als gewone tekst in de node **Configuratie** e
 Gecontroleerd op live, alleen lezen of zonder te schrijven (19 oktober 2026): SOAP-zoekopdracht,
 REST-login, dubbelcontrole (Konimpex wordt herkend, nummer 56190) en de foutenlijst bij ongeldige
 invoer. Een nieuwe relatie of uitvoerder is op live **nog niet aangemaakt**.
-Status: de workflow is aangemaakt maar nog niet aangezet (publiceren). Prompt voor de app:
+Status: aangezet (gepubliceerd) op 27 oktober 2026; de uitvoerder-route met nummer-invulling is op live nog niet met een echte aanmaak getest. Prompt voor de app:
 `docs/ai-studio-wijziging-live.md`.
 
 ## n8n
