@@ -1,4 +1,4 @@
-import { workflow, node, trigger, newCredential, expr } from '@n8n/workflow-sdk';
+import { workflow, node, trigger, expr } from '@n8n/workflow-sdk';
 
 // Formulier: ordernummer uit MendriX invullen, leveradres (lostaak) controleren en als zending
 // aanmaken in het B-east-portaal (POST https://app.b-east.nl/api/shipments).
@@ -40,6 +40,7 @@ const config = node({
           { id: 'su', name: 'soapUser', value: 'VUL_IN_SOAP_GEBRUIKERSNAAM', type: 'string' },
           { id: 'sp', name: 'soapPwd', value: 'VUL_IN_SOAP_WACHTWOORD', type: 'string' },
           { id: 'beast', name: 'beastUrl', value: 'https://app.b-east.nl/api', type: 'string' },
+          { id: 'btok', name: 'beastToken', value: 'VUL_IN_BEAST_API_TOKEN', type: 'string' },
           { id: 'nr', name: 'ordernummer', value: expr("{{ String($json.ordernummer ?? '').replace(/\\D/g, '') }}"), type: 'string' }
         ]
       }
@@ -156,15 +157,17 @@ const products = node({
     parameters: {
       method: 'GET',
       url: expr("{{ $('Configuratie').first().json.beastUrl }}/products"),
-      authentication: 'genericCredentialType',
-      genericAuthType: 'httpTemplatedCustomAuth',
       sendHeaders: true,
-      headerParameters: { parameters: [{ name: 'Accept', value: 'application/json' }] },
+      headerParameters: {
+        parameters: [
+          { name: 'Authorization', value: expr("Bearer {{ $('Configuratie').first().json.beastToken }}") },
+          { name: 'Accept', value: 'application/json' }
+        ]
+      },
       options: { timeout: 30000 }
-    },
-    credentials: { httpTemplatedCustomAuth: newCredential('B-east API') }
+    }
   },
-  output: [{ data: [{ id: 1, origin_country: 'NL', destination_country: 'NL', provider: 'postnl', name: 'PostNL - Standaard', tariff: '4.95', features: null }] }]
+  output: [{ id: 1, origin_country: 'NL', destination_country: 'NL', provider: 'postnl', name: 'PostNL - Standaard', tariff: '4.95', features: null }]
 });
 
 const buildForm = node({
@@ -178,14 +181,13 @@ const buildForm = node({
       jsCode: `// Formuliervelden met de gegevens uit MendriX als standaardwaarde. Producten van B-east voor het
 // land van het leveradres komen in een keuzelijst; lukt het opvragen niet, dan kiest B-east zelf.
 const o = $('Order ophalen uit MendriX').first().json;
-const lijst = $input.first().json?.data;
+// GET /products geeft een losse lijst (n8n maakt er één item per product van), niet { data: [...] }.
+const lijst = $input.all().flatMap(i => Array.isArray(i.json?.data) ? i.json.data : [i.json]).filter(p => p && p.id != null);
 const STANDAARD = 'Standaard product van B-east';
 const opties = [STANDAARD];
-if (Array.isArray(lijst)) {
-  for (const p of lijst) {
-    if (String(p.destination_country ?? '').toUpperCase() !== o.land) continue;
-    opties.push(p.id + ' - ' + p.name + (p.tariff ? ' (€ ' + p.tariff + ')' : ''));
-  }
+for (const p of lijst) {
+  if (String(p.destination_country ?? '').toUpperCase() !== o.land) continue;
+  opties.push(p.id + ' - ' + p.name + (p.tariff ? ' (€ ' + p.tariff + ')' : ''));
 }
 const veld = (fieldLabel, fieldName, defaultValue, extra = {}) => ({ fieldLabel, fieldName, fieldType: 'text', defaultValue: String(defaultValue ?? ''), ...extra });
 const velden = [
@@ -280,17 +282,19 @@ const createShipment = node({
     parameters: {
       method: 'POST',
       url: expr("{{ $('Configuratie').first().json.beastUrl }}/shipments"),
-      authentication: 'genericCredentialType',
-      genericAuthType: 'httpTemplatedCustomAuth',
       sendHeaders: true,
-      headerParameters: { parameters: [{ name: 'Accept', value: 'application/json' }] },
+      headerParameters: {
+        parameters: [
+          { name: 'Authorization', value: expr("Bearer {{ $('Configuratie').first().json.beastToken }}") },
+          { name: 'Accept', value: 'application/json' }
+        ]
+      },
       sendBody: true,
       contentType: 'json',
       specifyBody: 'json',
       jsonBody: expr('{{ JSON.stringify($json.body) }}'),
       options: { timeout: 60000 }
-    },
-    credentials: { httpTemplatedCustomAuth: newCredential('B-east API') }
+    }
   },
   output: [{ id: 55, barcode: 'BST6608665228', carrier: 'PostNL', carrier_barcode: '3SABCD123456', carrier_tracking_url: 'http://postnl.nl/tracktrace/' }]
 });

@@ -102,10 +102,11 @@ n8n-workflow **"MendriX → B-east: zending aanmaken (formulier)"**
 
 Instellen:
 
-1. Maak in n8n een credential **"B-east API"** (type *Custom Auth*, templated) met
-   header `Authorization: Bearer <token>`. Het token maak je in B-east via Organization
-   Settings → Create API Token. Koppel hem aan beide B-east-nodes.
-2. Vul in de node **Configuratie** de SOAP-gebruikersnaam en -wachtwoord in.
+1. Vul in de node **Configuratie** `beastToken` in (B-east: Organization Settings → Create API
+   Token) en de SOAP-gebruikersnaam en -wachtwoord. De B-east-nodes sturen het token mee als
+   `Authorization: Bearer <token>`.
+2. `GET /products` geeft in de praktijk een losse lijst terug, niet `{ "data": [...] }` zoals in
+   de OpenAPI-spec; de workflow kan met beide vormen overweg.
 3. Zet de workflow actief en open de productie-URL van het formulier.
 
 Let op: B-east heeft geen testomgeving. Elke verstuurde zending staat echt in het portaal.
