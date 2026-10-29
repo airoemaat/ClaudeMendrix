@@ -1,4 +1,4 @@
-import { workflow, node, trigger, expr } from '@n8n/workflow-sdk';
+import { workflow, node, trigger, ifElse, expr } from '@n8n/workflow-sdk';
 
 // API voor de app (Google AI Studio): MendriX-order ophalen en als zending naar B-east sturen.
 // POST /webhook/mendrix-beast-app met header X-Api-Key (appKey in Configuratie).
@@ -64,7 +64,7 @@ const c = $('Configuratie').first().json;
 const hook = $('App-aanvraag (webhook)').first().json;
 const req = hook.body ?? {};
 const s = v => String(v ?? '').trim();
-const antwoord = (status, body) => [{ json: { status, body } }];
+const antwoord = (status, body) => [{ json: { status, body, upload: null } }];
 // Eigen sleutel voor deze app (header X-Api-Key), zodat de waarde bekend is en in de app kan staan.
 if (!c.appKey || s(hook.headers?.['x-api-key']) !== c.appKey) return antwoord(401, { error: 'Ongeldige of ontbrekende X-Api-Key.' });
 const actie = s(req.actie).toLowerCase();
@@ -80,11 +80,12 @@ const beast = (method, path, body) => this.helpers.httpRequest({
   returnFullResponse: true, ignoreHttpStatusErrors: true
 });
 
-// Label (PDF) bij B-east ophalen en in het MendriX-dossier van de order zetten.
+// Label (PDF) bij B-east ophalen; het uploaden naar het MendriX-dossier doet de HTTP-node
+// "Label naar MendriX-dossier" (een Buffer vanuit een Code-node komt als JSON-tekst in het dossier).
 // B-east geeft 409 + Retry-After zolang de vervoerder het label nog aanmaakt; dan kort wachten.
 const veilig = v => String(v ?? '').replace(/[^A-Za-z0-9_-]+/g, '');
 const wachten = sec => typeof setTimeout === 'function' ? new Promise(r => setTimeout(r, sec * 1000)) : Promise.resolve();
-const labelNaarDossier = async sh => {
+const labelOphalen = async sh => {
   let pdf = null;
   let melding = '';
   for (let poging = 1; poging <= 4 && !pdf; poging++) {
@@ -97,23 +98,25 @@ const labelNaarDossier = async sh => {
     else if (r.statusCode === 409 && poging < 4) await wachten(Math.min(15, parseInt(r.headers?.['retry-after'], 10) || 5));
     else melding = 'Label niet opgehaald bij B-east (HTTP ' + r.statusCode + ').';
   }
-  if (!pdf) return { labelInDossier: false, labelBestand: null, labelMelding: melding || 'Label is nog niet klaar bij B-east; probeer later actie "label".', labelPdfBase64: null };
+  if (!pdf || pdf.subarray(0, 4).toString('latin1') !== '%PDF') {
+    return { info: { labelInDossier: false, labelBestand: null, labelMelding: melding || 'Label is nog niet klaar bij B-east; probeer later actie "label".', labelPdfBase64: null } };
+  }
   const labelBestand = 'Label_' + (veilig(sh.carrier) || 'B-east') + '_' + (veilig(sh.carrier_barcode) || veilig(sh.barcode)) + '.pdf';
+  const info = { labelInDossier: false, labelBestand, labelMelding: '', labelPdfBase64: pdf.toString('base64') };
   try {
     const login = await this.helpers.httpRequest({ method: 'POST', url: c.restBaseUrl + '/account/login-api-token', body: { token: c.restToken }, json: true, timeout: 30000 });
     const token = login?.data?.items?.[0]?.access;
     if (!token) throw new Error('inloggen bij MendriX mislukt');
-    const up = await this.helpers.httpRequest({
-      method: 'POST', url: c.restBaseUrl + '/dossier/dossiers/orders/' + encodeURIComponent(ordernummer) + '/contents/' + encodeURIComponent(labelBestand),
-      body: pdf, timeout: 60000, returnFullResponse: true, ignoreHttpStatusErrors: true,
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream' }
-    });
-    if (up.statusCode >= 300) throw new Error('HTTP ' + up.statusCode + ' ' + String(typeof up.body === 'string' ? up.body : JSON.stringify(up.body ?? '')).slice(0, 200));
-    return { labelInDossier: true, labelBestand, labelMelding: 'Label in het MendriX-dossier van order ' + ordernummer + ' gezet.', labelPdfBase64: pdf.toString('base64') };
+    // Als base64 doorgeven (ook een Buffer naar prepareBinaryData gaat in de task runner als JSON).
+    const binary = { data: info.labelPdfBase64, mimeType: 'application/pdf', fileName: labelBestand, fileExtension: 'pdf' };
+    return { info, upload: { ordernummer, labelBestand, token }, binary };
   } catch (e) {
-    return { labelInDossier: false, labelBestand, labelMelding: 'Label niet in het MendriX-dossier gezet: ' + e.message, labelPdfBase64: pdf.toString('base64') };
+    info.labelMelding = 'Label niet in het MendriX-dossier gezet: ' + e.message;
+    return { info };
   }
 };
+// Antwoord met (optioneel) een label dat de volgende nodes nog in het dossier zetten.
+const metLabel = (status, body, label) => [{ json: { status, body: { ...body, ...label.info }, upload: label.upload ?? null }, ...(label.binary ? { binary: { label: label.binary } } : {}) }];
 
 // Bestaande zendingen in B-east met dit ordernummer in de referentie (laatste 150 zendingen).
 const bestaand = async () => {
@@ -218,7 +221,7 @@ if (actie === 'label') {
   if (!new RegExp('(^|\\\\D)' + ordernummer + '(\\\\D|$)').test(String(sh.reference ?? ''))) {
     return antwoord(422, { error: 'Zending ' + zendingId + ' hoort niet bij order ' + ordernummer + ' (referentie: ' + (sh.reference ?? 'leeg') + ').' });
   }
-  return antwoord(200, { id: sh.id, barcode: sh.barcode, referentie: sh.reference, vervoerder: sh.carrier ?? null, vervoerderBarcode: sh.carrier_barcode ?? null, ...(await labelNaarDossier(sh)) });
+  return metLabel(200, { id: sh.id, barcode: sh.barcode, referentie: sh.reference, vervoerder: sh.carrier ?? null, vervoerderBarcode: sh.carrier_barcode ?? null }, await labelOphalen(sh));
 }
 
 // actie "versturen": zending aanmaken met label (status ingecheckt).
@@ -253,8 +256,8 @@ if (r.statusCode !== 201 && r.statusCode !== 200) {
 }
 const sh = r.body ?? {};
 let label;
-try { label = await labelNaarDossier(sh); } catch (e) { label = { labelInDossier: false, labelBestand: null, labelMelding: 'Label niet verwerkt: ' + e.message, labelPdfBase64: null }; }
-return antwoord(201, {
+try { label = await labelOphalen(sh); } catch (e) { label = { info: { labelInDossier: false, labelBestand: null, labelMelding: 'Label niet verwerkt: ' + e.message, labelPdfBase64: null } }; }
+return metLabel(201, {
   id: sh.id,
   barcode: sh.barcode,
   status: 'checked_in',
@@ -263,12 +266,77 @@ return antwoord(201, {
   vervoerder: sh.carrier ?? sh.product?.provider ?? null,
   vervoerderBarcode: sh.carrier_barcode ?? null,
   trackTraceUrl: sh.carrier_tracking_url ?? null,
-  tarief: sh.quote ?? null,
-  ...label
-});`
+  tarief: sh.quote ?? null
+}, label);`
     }
   },
   output: [{ status: 200, body: {} }]
+});
+
+const needsUpload = ifElse({
+  version: 2.3,
+  config: {
+    name: 'Label uploaden?',
+    position: [660, 0],
+    parameters: {
+      conditions: {
+        combinator: 'and',
+        options: { caseSensitive: true, leftValue: '', typeValidation: 'loose', version: 2 },
+        conditions: [{ leftValue: expr('{{ !!$json.upload }}'), rightValue: true, operator: { type: 'boolean', operation: 'true', singleValue: true } }]
+      }
+    }
+  }
+});
+
+const upload = node({
+  type: 'n8n-nodes-base.httpRequest',
+  version: 4.2,
+  config: {
+    name: 'Label naar MendriX-dossier',
+    position: [880, -100],
+    onError: 'continueRegularOutput',
+    parameters: {
+      method: 'POST',
+      url: expr("{{ $('Configuratie').first().json.restBaseUrl }}/dossier/dossiers/orders/{{ encodeURIComponent($json.upload.ordernummer) }}/contents/{{ encodeURIComponent($json.upload.labelBestand) }}"),
+      sendHeaders: true,
+      headerParameters: {
+        parameters: [
+          { name: 'Authorization', value: expr('Bearer {{ $json.upload.token }}') },
+          { name: 'Content-Type', value: 'application/octet-stream' }
+        ]
+      },
+      sendBody: true,
+      contentType: 'binaryData',
+      inputDataFieldName: 'label',
+      options: { timeout: 60000 }
+    }
+  },
+  output: [{}]
+});
+
+const afterUpload = node({
+  type: 'n8n-nodes-base.code',
+  version: 2,
+  config: {
+    name: 'Uploadresultaat',
+    position: [1100, -100],
+    parameters: {
+      mode: 'runOnceForAllItems',
+      jsCode: `// Uploadresultaat in het antwoord voor de app zetten.
+const v = $('Aanvraag verwerken').first().json;
+const r = $input.first().json ?? {};
+const body = { ...v.body };
+if (r.error) {
+  body.labelInDossier = false;
+  body.labelMelding = 'Label niet in het MendriX-dossier gezet: ' + (r.error.message ?? JSON.stringify(r.error)).slice(0, 300);
+} else {
+  body.labelInDossier = true;
+  body.labelMelding = 'Label in het MendriX-dossier van order ' + v.upload.ordernummer + ' gezet als ' + v.upload.labelBestand + '.';
+}
+return [{ json: { status: v.status, body } }];`
+    }
+  },
+  output: [{ status: 201, body: {} }]
 });
 
 const respond = node({
@@ -276,7 +344,7 @@ const respond = node({
   version: 1.5,
   config: {
     name: 'Antwoord',
-    position: [660, -100],
+    position: [1320, 0],
     parameters: {
       respondWith: 'json',
       responseBody: expr('{{ JSON.stringify($json.body) }}'),
@@ -291,7 +359,7 @@ const respondError = node({
   version: 1.5,
   config: {
     name: 'Antwoord: fout',
-    position: [660, 100],
+    position: [660, 200],
     parameters: {
       respondWith: 'json',
       responseBody: expr("{{ JSON.stringify({ error: 'Fout bij MendriX of B-east: ' + ($json.error?.message ?? $json.message ?? 'onbekende fout') }) }}"),
@@ -305,4 +373,6 @@ export default workflow('mendrix-beast-api', 'MendriX → B-east: zending (API v
   .add(hook)
   .to(config)
   .to(handle.onError(respondError))
-  .to(respond);
+  .to(needsUpload
+    .onTrue(upload.to(afterUpload).to(respond))
+    .onFalse(respond));
