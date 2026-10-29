@@ -111,6 +111,23 @@ Instellen:
 
 Let op: B-east heeft geen testomgeving. Elke verstuurde zending staat echt in het portaal.
 
+### API voor de app (Google AI Studio)
+
+n8n-workflow **"MendriX → B-east: zending (API voor app)"**
+(bron: `n8n/beast-zending-api.workflow.ts`). Prompt voor AI Studio: `docs/ai-studio-prompt-beast.md`.
+
+```
+POST https://roemaat.app.n8n.cloud/webhook/mendrix-beast-app
+Header: X-Api-Key: <sleutel uit n8n-credential "Header Auth account", zelfde als de relatie-app>
+Body:   {"actie": "ophalen", "ordernummer": "1425727"}
+        {"actie": "versturen", "ordernummer": "1425727", "productId": 181, "zending": {...}, "ookAlsBestaat": false}
+```
+
+`ophalen` geeft het leveradres, de vervoerders (B-east-producten voor het land) en de zendingen die
+al in B-east staan met dit ordernummer in de referentie (laatste 150). `versturen` vraagt altijd
+direct het label aan (status *ingecheckt*) en weigert met 409 als de order al in B-east staat,
+tenzij `ookAlsBestaat: true`.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
