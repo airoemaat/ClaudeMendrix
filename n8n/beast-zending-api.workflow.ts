@@ -4,7 +4,9 @@ import { workflow, node, trigger, expr } from '@n8n/workflow-sdk';
 // POST /webhook/mendrix-beast-app met header X-Api-Key (appKey in Configuratie).
 //   { "actie": "ophalen",   "ordernummer": "1425727" }
 //   { "actie": "versturen", "ordernummer": "1425727", "productId": 181, "zending": { ... }, "ookAlsBestaat": false }
-// Het label wordt altijd direct aangevraagd (request_label = true, status "ingecheckt").
+//   { "actie": "label",     "ordernummer": "1425727", "zendingId": 248863 }
+// Het label wordt altijd direct aangevraagd (request_label = true, status "ingecheckt") en als PDF
+// in het MendriX-dossier van de order gezet (REST: POST /dossier/dossiers/orders/{id}/contents/{naam}).
 
 const hook = trigger({
   type: 'n8n-nodes-base.webhook',
@@ -38,12 +40,14 @@ const config = node({
           { id: 'sp', name: 'soapPwd', value: 'VUL_IN_SOAP_WACHTWOORD', type: 'string' },
           { id: 'beast', name: 'beastUrl', value: 'https://app.b-east.nl/api', type: 'string' },
           { id: 'btok', name: 'beastToken', value: 'VUL_IN_BEAST_API_TOKEN', type: 'string' },
-          { id: 'akey', name: 'appKey', value: 'VUL_IN_APP_SLEUTEL', type: 'string' }
+          { id: 'akey', name: 'appKey', value: 'VUL_IN_APP_SLEUTEL', type: 'string' },
+          { id: 'rest', name: 'restBaseUrl', value: 'http://connection.roemaat.nl:38000/api', type: 'string' },
+          { id: 'rtok', name: 'restToken', value: 'VUL_IN_MENDRIX_API_TOKEN', type: 'string' }
         ]
       }
     }
   },
-  output: [{ soapUrl: '', soapUser: '', soapPwd: '', beastUrl: 'https://app.b-east.nl/api', beastToken: '', appKey: '' }]
+  output: [{ soapUrl: '', soapUser: '', soapPwd: '', beastUrl: 'https://app.b-east.nl/api', beastToken: '', appKey: '', restBaseUrl: '', restToken: '' }]
 });
 
 const handle = node({
@@ -65,7 +69,7 @@ const antwoord = (status, body) => [{ json: { status, body } }];
 if (!c.appKey || s(hook.headers?.['x-api-key']) !== c.appKey) return antwoord(401, { error: 'Ongeldige of ontbrekende X-Api-Key.' });
 const actie = s(req.actie).toLowerCase();
 const ordernummer = s(req.ordernummer).replace(/\\D/g, '');
-if (!['ophalen', 'versturen'].includes(actie)) return antwoord(400, { error: 'actie moet "ophalen" of "versturen" zijn.' });
+if (!['ophalen', 'versturen', 'label'].includes(actie)) return antwoord(400, { error: 'actie moet "ophalen", "versturen" of "label" zijn.' });
 if (!ordernummer) return antwoord(400, { error: 'Vul een geldig ordernummer in (alleen cijfers).' });
 
 const esc = v => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -75,6 +79,41 @@ const beast = (method, path, body) => this.helpers.httpRequest({
   headers: { Authorization: 'Bearer ' + c.beastToken, Accept: 'application/json' },
   returnFullResponse: true, ignoreHttpStatusErrors: true
 });
+
+// Label (PDF) bij B-east ophalen en in het MendriX-dossier van de order zetten.
+// B-east geeft 409 + Retry-After zolang de vervoerder het label nog aanmaakt; dan kort wachten.
+const veilig = v => String(v ?? '').replace(/[^A-Za-z0-9_-]+/g, '');
+const wachten = sec => typeof setTimeout === 'function' ? new Promise(r => setTimeout(r, sec * 1000)) : Promise.resolve();
+const labelNaarDossier = async sh => {
+  let pdf = null;
+  let melding = '';
+  for (let poging = 1; poging <= 4 && !pdf; poging++) {
+    const r = await this.helpers.httpRequest({
+      method: 'GET', url: c.beastUrl + '/shipments/' + sh.id + '/label', encoding: 'arraybuffer', timeout: 60000,
+      headers: { Authorization: 'Bearer ' + c.beastToken, Accept: 'application/pdf' },
+      returnFullResponse: true, ignoreHttpStatusErrors: true
+    });
+    if (r.statusCode === 200) pdf = Buffer.from(r.body);
+    else if (r.statusCode === 409 && poging < 4) await wachten(Math.min(15, parseInt(r.headers?.['retry-after'], 10) || 5));
+    else melding = 'Label niet opgehaald bij B-east (HTTP ' + r.statusCode + ').';
+  }
+  if (!pdf) return { labelInDossier: false, labelBestand: null, labelMelding: melding || 'Label is nog niet klaar bij B-east; probeer later actie "label".', labelPdfBase64: null };
+  const labelBestand = 'Label_' + (veilig(sh.carrier) || 'B-east') + '_' + (veilig(sh.carrier_barcode) || veilig(sh.barcode)) + '.pdf';
+  try {
+    const login = await this.helpers.httpRequest({ method: 'POST', url: c.restBaseUrl + '/account/login-api-token', body: { token: c.restToken }, json: true, timeout: 30000 });
+    const token = login?.data?.items?.[0]?.access;
+    if (!token) throw new Error('inloggen bij MendriX mislukt');
+    const up = await this.helpers.httpRequest({
+      method: 'POST', url: c.restBaseUrl + '/dossier/dossiers/orders/' + encodeURIComponent(ordernummer) + '/contents/' + encodeURIComponent(labelBestand),
+      body: pdf, timeout: 60000, returnFullResponse: true, ignoreHttpStatusErrors: true,
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/octet-stream' }
+    });
+    if (up.statusCode >= 300) throw new Error('HTTP ' + up.statusCode + ' ' + String(typeof up.body === 'string' ? up.body : JSON.stringify(up.body ?? '')).slice(0, 200));
+    return { labelInDossier: true, labelBestand, labelMelding: 'Label in het MendriX-dossier van order ' + ordernummer + ' gezet.', labelPdfBase64: pdf.toString('base64') };
+  } catch (e) {
+    return { labelInDossier: false, labelBestand, labelMelding: 'Label niet in het MendriX-dossier gezet: ' + e.message, labelPdfBase64: pdf.toString('base64') };
+  }
+};
 
 // Bestaande zendingen in B-east met dit ordernummer in de referentie (laatste 150 zendingen).
 const bestaand = async () => {
@@ -167,6 +206,21 @@ if (actie === 'ophalen') {
   });
 }
 
+if (actie === 'label') {
+  // Label van een bestaande zending (opnieuw) in het dossier zetten.
+  const zendingId = parseInt(s(req.zendingId), 10);
+  if (!Number.isInteger(zendingId)) return antwoord(400, { error: 'Vul zendingId in (het B-east zending-id).' });
+  const r = await beast('GET', '/shipments/' + zendingId);
+  if (r.statusCode === 404 || r.statusCode === 403) return antwoord(404, { error: 'Zending ' + zendingId + ' niet gevonden in B-east.' });
+  if (r.statusCode !== 200) return antwoord(502, { error: 'B-east: HTTP ' + r.statusCode });
+  const sh = r.body?.data ?? r.body ?? {};
+  // Alleen in het dossier van de order waar de zending bij hoort.
+  if (!new RegExp('(^|\\\\D)' + ordernummer + '(\\\\D|$)').test(String(sh.reference ?? ''))) {
+    return antwoord(422, { error: 'Zending ' + zendingId + ' hoort niet bij order ' + ordernummer + ' (referentie: ' + (sh.reference ?? 'leeg') + ').' });
+  }
+  return antwoord(200, { id: sh.id, barcode: sh.barcode, referentie: sh.reference, vervoerder: sh.carrier ?? null, vervoerderBarcode: sh.carrier_barcode ?? null, ...(await labelNaarDossier(sh)) });
+}
+
 // actie "versturen": zending aanmaken met label (status ingecheckt).
 const z = req.zending ?? {};
 const leeg = v => s(v) || null;
@@ -198,6 +252,8 @@ if (r.statusCode !== 201 && r.statusCode !== 200) {
   return antwoord(r.statusCode === 422 ? 422 : 502, { error: 'B-east: ' + (r.body?.message ?? ('HTTP ' + r.statusCode)), fouten: r.body?.errors ?? null });
 }
 const sh = r.body ?? {};
+let label;
+try { label = await labelNaarDossier(sh); } catch (e) { label = { labelInDossier: false, labelBestand: null, labelMelding: 'Label niet verwerkt: ' + e.message, labelPdfBase64: null }; }
 return antwoord(201, {
   id: sh.id,
   barcode: sh.barcode,
@@ -207,7 +263,8 @@ return antwoord(201, {
   vervoerder: sh.carrier ?? sh.product?.provider ?? null,
   vervoerderBarcode: sh.carrier_barcode ?? null,
   trackTraceUrl: sh.carrier_tracking_url ?? null,
-  tarief: sh.quote ?? null
+  tarief: sh.quote ?? null,
+  ...label
 });`
     }
   },

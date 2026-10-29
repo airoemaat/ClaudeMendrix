@@ -61,7 +61,20 @@ Request (zending = de velden uit stap 1, zoals de gebruiker ze eventueel heeft a
 Response 201:
 { "id": 249400, "barcode": "BST4465190066", "status": "checked_in", "referentie": "1425727/ HENL-SO073087",
   "product": "Normaal pakket (tot 20kg)", "vervoerder": "DPD NL", "vervoerderBarcode": "05122008018134",
-  "trackTraceUrl": "https://...", "tarief": "6.50" }
+  "trackTraceUrl": "https://...", "tarief": "6.50",
+  "labelInDossier": true, "labelBestand": "Label_DPDNL_05122008018134.pdf",
+  "labelMelding": "Label in het MendriX-dossier van order 1425727 gezet.",
+  "labelPdfBase64": "JVBERi0xLjQK..." }
+Het label (PDF) wordt automatisch bij B-east opgehaald en in het MendriX-orderdossier gezet.
+labelPdfBase64 is de PDF als base64 (kan null zijn als het label nog niet klaar was).
+
+### 3. Label opnieuw ophalen (bestaande zending)
+
+Request:
+{ "actie": "label", "ordernummer": "1425727", "zendingId": 248863 }
+
+Response 200: zelfde labelvelden als hierboven, plus id, barcode, referentie, vervoerder, vervoerderBarcode.
+422 als de zending niet bij deze order hoort.
 
 ### Foutantwoorden (altijd JSON met "error")
 - 400: invoer ongeldig, bv. { "error": "Verplichte velden ontbreken: email_address", "velden": ["email_address"] }
@@ -96,6 +109,10 @@ Response 201:
    - Bij 400/422 toon de foutmelding en markeer de velden uit "velden" of de sleutels van "fouten".
 
 4. Na succes (201): een groen resultaatscherm met B-east zending-id, B-east barcode, vervoerder, vervoerderbarcode, referentie, tarief en een knop "Track & trace" (als trackTraceUrl gevuld is, in nieuw tabblad).
+   - Toon labelMelding: groen vinkje "Label in MendriX-dossier" als labelInDossier true is, anders oranje met de melding.
+   - Als labelPdfBase64 gevuld is: knoppen "Label printen" (open de PDF in een nieuw tabblad via een Blob-URL van type application/pdf en roep print aan) en "Label downloaden" (bestandsnaam = labelBestand).
+   - Als labelInDossier false is: knop "Label opnieuw ophalen" die actie "label" aanroept met ordernummer en id, en het resultaat op dezelfde manier toont.
+   - Bij de oranje waarschuwing over bestaandeZendingen (stap 2) per zending ook een knop "Label naar dossier" (actie "label" met die zendingId).
    Knop "Nieuwe order" maakt alles leeg en zet de focus op het ordernummerveld.
 
 5. Stuur nooit twee keer dezelfde aanvraag: knop uitschakelen tijdens het versturen.

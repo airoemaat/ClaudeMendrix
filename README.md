@@ -121,12 +121,18 @@ POST https://roemaat.app.n8n.cloud/webhook/mendrix-beast-app
 Header: X-Api-Key: <appKey uit de node Configuratie van deze workflow>
 Body:   {"actie": "ophalen", "ordernummer": "1425727"}
         {"actie": "versturen", "ordernummer": "1425727", "productId": 181, "zending": {...}, "ookAlsBestaat": false}
+        {"actie": "label", "ordernummer": "1425727", "zendingId": 248863}
 ```
 
 `ophalen` geeft het leveradres, de vervoerders (B-east-producten voor het land) en de zendingen die
 al in B-east staan met dit ordernummer in de referentie (laatste 150). `versturen` vraagt altijd
 direct het label aan (status *ingecheckt*) en weigert met 409 als de order al in B-east staat,
-tenzij `ookAlsBestaat: true`.
+tenzij `ookAlsBestaat: true`. Na het aanmaken haalt de workflow het label op
+(`GET /shipments/{id}/label`, bij 409 maximaal 3 keer wachten op `Retry-After`) en zet het in het
+MendriX-dossier van de order als `Label_<vervoerder>_<vervoerderbarcode>.pdf`
+(`POST /dossier/dossiers/orders/{id}/contents/{naam}`, REST LIVE). Het antwoord bevat ook de PDF
+(`labelPdfBase64`) zodat de app hem kan printen. `label` doet hetzelfde voor een bestaande zending,
+alleen als de referentie van die zending het ordernummer bevat.
 
 ## n8n
 
