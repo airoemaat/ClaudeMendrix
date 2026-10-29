@@ -83,8 +83,8 @@ n8n-workflow **"MendriX → B-east: zending aanmaken (formulier)"**
 2. SOAP Custom Link `RequestOrdersNormal` (LIVE, `connection.roemaat.nl:5564`) haalt de order op.
    Het leveradres komt uit de lostaak (`TaskTypeIdEx = 2`; bij meer lostaken de laatste).
 3. `GET /products` van B-east vult een keuzelijst met producten voor het land van het leveradres.
-4. Controlepagina met alle velden vooraf ingevuld; pas aan waar nodig en klik op
-   **Zending aanmaken in B-east**.
+4. Controlepagina: kies bovenaan de **vervoerder** (producten van B-east voor het land van
+   het leveradres), controleer de vooraf ingevulde gegevens en klik op **Stuur naar B-east**.
 5. `POST https://app.b-east.nl/api/shipments`; de bevestiging toont het zending-ID, de barcode en,
    als het label direct is aangevraagd, de track & trace van de vervoerder.
 

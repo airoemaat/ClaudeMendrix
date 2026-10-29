@@ -183,14 +183,17 @@ const buildForm = node({
 const o = $('Order ophalen uit MendriX').first().json;
 // GET /products geeft een losse lijst (n8n maakt er één item per product van), niet { data: [...] }.
 const lijst = $input.all().flatMap(i => Array.isArray(i.json?.data) ? i.json.data : [i.json]).filter(p => p && p.id != null);
-const STANDAARD = 'Standaard product van B-east';
-const opties = [STANDAARD];
+// Vervoerders bovenaan het formulier; de standaardkeuze van B-east staat als laatste optie.
+const STANDAARD = 'Standaard van B-east (B-east kiest)';
+const opties = [];
 for (const p of lijst) {
   if (String(p.destination_country ?? '').toUpperCase() !== o.land) continue;
   opties.push(p.id + ' - ' + p.name + (p.tariff ? ' (€ ' + p.tariff + ')' : ''));
 }
+opties.push(STANDAARD);
 const veld = (fieldLabel, fieldName, defaultValue, extra = {}) => ({ fieldLabel, fieldName, fieldType: 'text', defaultValue: String(defaultValue ?? ''), ...extra });
 const velden = [
+  { fieldLabel: 'Vervoerder', fieldName: 'product', fieldType: 'dropdown', defaultValue: opties[0], requiredField: true, fieldOptions: { values: opties.map(option => ({ option })) } },
   veld('Bedrijfsnaam', 'company', o.bedrijf),
   veld('Voornaam', 'first_name', o.voornaam),
   veld('Achternaam / naam ontvanger', 'last_name', o.achternaam, { requiredField: true }),
@@ -203,7 +206,6 @@ const velden = [
   veld('Land (ISO-code, bv. NL)', 'country', o.land, { requiredField: true }),
   veld('Referentie', 'reference', o.ordernummer),
   veld('Aantal colli (1-10)', 'collo', o.colli, { fieldType: 'number', requiredField: true }),
-  { fieldLabel: 'Product', fieldName: 'product', fieldType: 'dropdown', defaultValue: STANDAARD, requiredField: true, fieldOptions: { values: opties.map(option => ({ option })) } },
   { fieldLabel: 'Label direct aanvragen bij de vervoerder?', fieldName: 'request_label', fieldType: 'dropdown', defaultValue: 'Nee, zending blijft aanpasbaar in B-east', requiredField: true,
     fieldOptions: { values: [{ option: 'Nee, zending blijft aanpasbaar in B-east' }, { option: 'Ja, label aanvragen (zending niet meer aanpasbaar)' }] } }
 ];
@@ -227,9 +229,9 @@ const checkForm = node({
       defineForm: 'json',
       jsonOutput: expr('{{ $json.formulier }}'),
       options: {
-        formTitle: 'Zending controleren',
+        formTitle: 'Vervoerder kiezen en versturen',
         formDescription: expr('{{ $json.toelichting }}'),
-        buttonLabel: 'Zending aanmaken in B-east',
+        buttonLabel: 'Stuur naar B-east',
         appendAttribution: false
       }
     }
