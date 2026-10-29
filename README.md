@@ -96,9 +96,9 @@ n8n-workflow **"MendriX → B-east: zending aanmaken (formulier)"**
 | `phone_number` | `Connectivity/Phone`, anders `Connectivity/Mobile` |
 | `address1` | `Street` + `Number` |
 | `postal_code`, `city`, `country` | `PostalCode`, `Place`, `CountryCode` |
-| `reference` | ordernummer |
+| `reference` | `<ordernummer>/ <orderkenmerk>` (MendriX `Reference`), bv. `1425727/ HENL-SO073087` |
 | `collo` | som van `Parts` van de goederen, begrensd op 1-10 (B-east-maximum) |
-| `request_label` | standaard `false`: de zending blijft aanpasbaar in het portaal |
+| `request_label` | standaard `true`: label direct bij de vervoerder, status *ingecheckt* (bij `false` blijft de zending op *nieuw* en aanpasbaar) |
 
 Instellen:
 

@@ -204,10 +204,11 @@ const velden = [
   veld('Postcode', 'postal_code', o.postcode, { requiredField: true }),
   veld('Plaats', 'city', o.plaats, { requiredField: true }),
   veld('Land (ISO-code, bv. NL)', 'country', o.land, { requiredField: true }),
-  veld('Referentie', 'reference', o.ordernummer),
+  // Zelfde vorm als de handmatig aangemaakte zendingen: "1425727/ HENL-SO073087".
+  veld('Referentie', 'reference', o.referentie && o.referentie !== o.ordernummer ? o.ordernummer + '/ ' + o.referentie : o.ordernummer),
   veld('Aantal colli (1-10)', 'collo', o.colli, { fieldType: 'number', requiredField: true }),
-  { fieldLabel: 'Label direct aanvragen bij de vervoerder?', fieldName: 'request_label', fieldType: 'dropdown', defaultValue: 'Nee, zending blijft aanpasbaar in B-east', requiredField: true,
-    fieldOptions: { values: [{ option: 'Nee, zending blijft aanpasbaar in B-east' }, { option: 'Ja, label aanvragen (zending niet meer aanpasbaar)' }] } }
+  { fieldLabel: 'Label direct aanvragen bij de vervoerder?', fieldName: 'request_label', fieldType: 'dropdown', defaultValue: 'Ja, label aanvragen (status ingecheckt)', requiredField: true,
+    fieldOptions: { values: [{ option: 'Ja, label aanvragen (status ingecheckt)' }, { option: 'Nee, zending blijft aanpasbaar in B-east (status nieuw)' }] } }
 ];
 const toelichting = 'Order ' + o.ordernummer + ': leveradres uit de lostaak.' +
   (o.colliMendrix > 10 ? ' Let op: MendriX heeft ' + o.colliMendrix + ' colli; B-east accepteert maximaal 10 per zending.' : '') +
@@ -236,7 +237,7 @@ const checkForm = node({
       }
     }
   },
-  output: [{ company: '', first_name: 'Mark', last_name: 'Claessen', email_address: 'x@example.com', phone_number: '046 44 33 11', address1: 'Valutaweg 1', address2: '', postal_code: '7051 EA', city: 'Varsseveld', country: 'NL', reference: '1402685', collo: 1, product: 'Standaard product van B-east', request_label: 'Nee, zending blijft aanpasbaar in B-east' }]
+  output: [{ company: '', first_name: 'Mark', last_name: 'Claessen', email_address: 'x@example.com', phone_number: '046 44 33 11', address1: 'Valutaweg 1', address2: '', postal_code: '7051 EA', city: 'Varsseveld', country: 'NL', reference: '1402685', collo: 1, product: 'Standaard product van B-east', request_label: 'Ja, label aanvragen (status ingecheckt)' }]
 });
 
 const buildShipment = node({
