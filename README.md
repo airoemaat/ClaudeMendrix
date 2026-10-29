@@ -118,7 +118,7 @@ n8n-workflow **"MendriX → B-east: zending (API voor app)"**
 
 ```
 POST https://roemaat.app.n8n.cloud/webhook/mendrix-beast-app
-Header: X-Api-Key: <sleutel uit n8n-credential "Header Auth account", zelfde als de relatie-app>
+Header: X-Api-Key: <appKey uit de node Configuratie van deze workflow>
 Body:   {"actie": "ophalen", "ordernummer": "1425727"}
         {"actie": "versturen", "ordernummer": "1425727", "productId": 181, "zending": {...}, "ookAlsBestaat": false}
 ```

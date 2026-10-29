@@ -1,7 +1,7 @@
 import { workflow, node, trigger, expr } from '@n8n/workflow-sdk';
 
 // API voor de app (Google AI Studio): MendriX-order ophalen en als zending naar B-east sturen.
-// POST /webhook/mendrix-beast-app met header X-Api-Key (zelfde sleutel als de relatie-app).
+// POST /webhook/mendrix-beast-app met header X-Api-Key (appKey in Configuratie).
 //   { "actie": "ophalen",   "ordernummer": "1425727" }
 //   { "actie": "versturen", "ordernummer": "1425727", "productId": 181, "zending": { ... }, "ookAlsBestaat": false }
 // Het label wordt altijd direct aangevraagd (request_label = true, status "ingecheckt").
@@ -15,11 +15,9 @@ const hook = trigger({
     parameters: {
       httpMethod: 'POST',
       path: 'mendrix-beast-app',
-      authentication: 'headerAuth',
       responseMode: 'responseNode',
       options: { allowedOrigins: '*' }
-    },
-    credentials: { httpHeaderAuth: { id: 'VPqPuCy0FN0fAg8E', name: 'Header Auth account' } }
+    }
   },
   output: [{ body: { actie: 'ophalen', ordernummer: '1425727' }, headers: {}, query: {} }]
 });
@@ -39,12 +37,13 @@ const config = node({
           { id: 'su', name: 'soapUser', value: 'VUL_IN_SOAP_GEBRUIKERSNAAM', type: 'string' },
           { id: 'sp', name: 'soapPwd', value: 'VUL_IN_SOAP_WACHTWOORD', type: 'string' },
           { id: 'beast', name: 'beastUrl', value: 'https://app.b-east.nl/api', type: 'string' },
-          { id: 'btok', name: 'beastToken', value: 'VUL_IN_BEAST_API_TOKEN', type: 'string' }
+          { id: 'btok', name: 'beastToken', value: 'VUL_IN_BEAST_API_TOKEN', type: 'string' },
+          { id: 'akey', name: 'appKey', value: 'VUL_IN_APP_SLEUTEL', type: 'string' }
         ]
       }
     }
   },
-  output: [{ soapUrl: '', soapUser: '', soapPwd: '', beastUrl: 'https://app.b-east.nl/api', beastToken: '' }]
+  output: [{ soapUrl: '', soapUser: '', soapPwd: '', beastUrl: 'https://app.b-east.nl/api', beastToken: '', appKey: '' }]
 });
 
 const handle = node({
@@ -58,11 +57,14 @@ const handle = node({
       mode: 'runOnceForAllItems',
       jsCode: `// Eén endpoint met twee acties. Antwoord altijd als { status, body } voor de Respond-node.
 const c = $('Configuratie').first().json;
-const req = $('App-aanvraag (webhook)').first().json.body ?? {};
+const hook = $('App-aanvraag (webhook)').first().json;
+const req = hook.body ?? {};
 const s = v => String(v ?? '').trim();
+const antwoord = (status, body) => [{ json: { status, body } }];
+// Eigen sleutel voor deze app (header X-Api-Key), zodat de waarde bekend is en in de app kan staan.
+if (!c.appKey || s(hook.headers?.['x-api-key']) !== c.appKey) return antwoord(401, { error: 'Ongeldige of ontbrekende X-Api-Key.' });
 const actie = s(req.actie).toLowerCase();
 const ordernummer = s(req.ordernummer).replace(/\\D/g, '');
-const antwoord = (status, body) => [{ json: { status, body } }];
 if (!['ophalen', 'versturen'].includes(actie)) return antwoord(400, { error: 'actie moet "ophalen" of "versturen" zijn.' });
 if (!ordernummer) return antwoord(400, { error: 'Vul een geldig ordernummer in (alleen cijfers).' });
 
