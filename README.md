@@ -74,6 +74,42 @@ Body:   {"shipId": "123456", "vanaf": "2026-08-01"}   (vanaf is optioneel)
 | 404 | `{"error": "..."}`: geen orders of geen CMR gevonden |
 | 502 | `{"error": "..."}`: fout bij MendriX |
 
+## MendriX-order als zending naar B-east
+
+n8n-workflow **"MendriX → B-east: zending aanmaken (formulier)"**
+(bron: `n8n/beast-zending.workflow.ts`, formulierpad `mendrix-beast`):
+
+1. Formulier: vul het MendriX-ordernummer (order-ID) in.
+2. SOAP Custom Link `RequestOrdersNormal` (LIVE, `connection.roemaat.nl:5564`) haalt de order op.
+   Het leveradres komt uit de lostaak (`TaskTypeIdEx = 2`; bij meer lostaken de laatste).
+3. `GET /products` van B-east vult een keuzelijst met producten voor het land van het leveradres.
+4. Controlepagina met alle velden vooraf ingevuld; pas aan waar nodig en klik op
+   **Zending aanmaken in B-east**.
+5. `POST https://app.b-east.nl/api/shipments`; de bevestiging toont het zending-ID, de barcode en,
+   als het label direct is aangevraagd, de track & trace van de vervoerder.
+
+| B-east-veld | Uit MendriX (lostaak) |
+|---|---|
+| `company` | `Address/Name` |
+| `first_name`, `last_name` | `ContactName` gesplitst op de eerste spatie; zonder contactpersoon de bedrijfsnaam als achternaam |
+| `email_address` | `Connectivity/Email` (vaak leeg: dan zelf invullen, B-east vereist het) |
+| `phone_number` | `Connectivity/Phone`, anders `Connectivity/Mobile` |
+| `address1` | `Street` + `Number` |
+| `postal_code`, `city`, `country` | `PostalCode`, `Place`, `CountryCode` |
+| `reference` | ordernummer |
+| `collo` | som van `Parts` van de goederen, begrensd op 1-10 (B-east-maximum) |
+| `request_label` | standaard `false`: de zending blijft aanpasbaar in het portaal |
+
+Instellen:
+
+1. Maak in n8n een credential **"B-east API"** (type *Custom Auth*, templated) met
+   header `Authorization: Bearer <token>`. Het token maak je in B-east via Organization
+   Settings → Create API Token. Koppel hem aan beide B-east-nodes.
+2. Vul in de node **Configuratie** de SOAP-gebruikersnaam en -wachtwoord in.
+3. Zet de workflow actief en open de productie-URL van het formulier.
+
+Let op: B-east heeft geen testomgeving. Elke verstuurde zending staat echt in het portaal.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
