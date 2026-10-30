@@ -134,6 +134,21 @@ MendriX-dossier van de order als `Label_<vervoerder>_<vervoerderbarcode>.pdf`
 (`labelPdfBase64`) zodat de app hem kan printen. `label` doet hetzelfde voor een bestaande zending,
 alleen als de referentie van die zending het ordernummer bevat.
 
+## B-east statusmeldingen (webhook)
+
+n8n-workflow **"B-east → MendriX: statusmeldingen (webhook)"** (bron: `n8n/beast-status-webhook.workflow.ts`).
+In B-east instellen onder Organization settings → Webhooks:
+
+```
+POST https://roemaat.app.n8n.cloud/webhook/beast-status
+```
+
+Fase 1: elke melding (`shipment.status_changed`) wordt vastgelegd in de n8n data table
+"B-east statusmeldingen", met het MendriX-ordernummer uit de referentie. Er wordt nog niets in
+MendriX gewijzigd. Fase 2 (na akkoord): bij `delivered` de taken in MendriX op `Completed` zetten via
+`PATCH /order/orders/{orderId}/tasks/{taskId}` met `{ id, state: "Completed", completion: {...} }`
+(getest op TEST met order 1402685: TaskStateId 1300/1200 -> 1800, voortgang 100%).
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
