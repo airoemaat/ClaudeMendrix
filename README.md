@@ -143,11 +143,21 @@ In B-east instellen onder Organization settings → Webhooks:
 POST https://roemaat.app.n8n.cloud/webhook/beast-status
 ```
 
-Fase 1: elke melding (`shipment.status_changed`) wordt vastgelegd in de n8n data table
-"B-east statusmeldingen", met het MendriX-ordernummer uit de referentie. Er wordt nog niets in
-MendriX gewijzigd. Fase 2 (na akkoord): bij `delivered` de taken in MendriX op `Completed` zetten via
-`PATCH /order/orders/{orderId}/tasks/{taskId}` met `{ id, state: "Completed", completion: {...} }`
-(getest op TEST met order 1402685: TaskStateId 1300/1200 -> 1800, voortgang 100%).
+Elke melding (`shipment.status_changed`) wordt vastgelegd in de n8n data table
+"B-east statusmeldingen", met het MendriX-ordernummer uit de referentie en het resultaat van de
+handtekeningcontrole (HMAC-SHA256 van de ruwe body; nog alleen gelogd).
+
+Bij `delivered` wordt de **lostaak van de MendriX LIVE-order afgerond**:
+
+1. De B-east API (`GET /shipments/{id}`) moet bevestigen dat de zending `delivered` is en dat de
+   referentie het ordernummer bevat; zo kan een nagemaakte melding niets afronden (bij 5xx 3 pogingen).
+2. Order via SOAP `RequestOrdersNormal`; laatste taak met `TaskTypeIdEx = 2`. Staat die al op 1800, dan niets.
+3. `PATCH /order/orders/{orderId}/tasks/{taskId}` met
+   `{ id, state: "Completed", completion: { timewindow: <aflevertijd uit history>, signedBy: "B-east <vervoerder> <barcode>" } }`.
+   MendriX zet daarbij zelf ook de laadtaak op afgerond (getest op TEST, order 1403057: 1200 -> 1800).
+
+Kolom `actie` in de log: `alleen gelogd`, `lostaak afgerond`, `al afgerond`, `niet afgerond` of `fout`,
+met de reden in `melding`.
 
 ## n8n
 
