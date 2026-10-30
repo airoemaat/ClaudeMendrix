@@ -152,9 +152,11 @@ Bij `delivered` wordt de **lostaak van de MendriX LIVE-order afgerond**:
 1. De B-east API (`GET /shipments/{id}`) moet bevestigen dat de zending `delivered` is en dat de
    referentie het ordernummer bevat; zo kan een nagemaakte melding niets afronden (bij 5xx 3 pogingen).
 2. Order via SOAP `RequestOrdersNormal`; laatste taak met `TaskTypeIdEx = 2`. Staat die al op 1800, dan niets.
-3. `PATCH /order/orders/{orderId}/tasks/{taskId}` met alleen `{ id, state: "Completed" }`: geen
-   uitvoertijd of ondertekenaar. Getest op TEST (order 1403057): alleen `TaskStateId` 1200 -> 1800 en
-   `StatusAccepted` 0 -> 1; MendriX zet daarbij zelf ook de laadtaak op afgerond.
+3. `PATCH /order/orders/{orderId}/tasks/{taskId}` met
+   `{ id, state: "Completed", completion: { timewindow: { begin, end } } }` (aflevertijd uit de B-east-history),
+   zonder ondertekenaar. Alleen de status zet MendriX op afgerond maar laat de order grijs; met de uitvoertijd
+   wordt order/goederen/taken groen en 100% (getest op TEST, order 1403056). MendriX zet daarbij zelf ook de
+   laadtaak op afgerond.
 
 Kolom `actie` in de log: `alleen gelogd`, `lostaak afgerond`, `al afgerond`, `niet afgerond` of `fout`,
 met de reden in `melding`.

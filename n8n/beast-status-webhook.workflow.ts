@@ -84,19 +84,20 @@ const afronden = async (sh, ordernummer) => {
   const stateId = (los.match(/<TaskStateId[^>]*>\\s*<Id>(-?\\d+)<\\/Id>/) || [])[1];
   if (stateId === '1800') return ['al afgerond', 'Lostaak ' + taskId + ' stond al op afgerond'];
 
-  // 3. Alleen de status van de lostaak op Completed zetten via REST (geen uitvoertijd of ondertekenaar).
+  // 3. Lostaak op Completed zetten via REST met het aflevertijdstip als uitvoertijd (daarmee wordt de order
+  // in MendriX groen/100%); geen ondertekenaar.
   const login = await this.helpers.httpRequest({ method: 'POST', url: REST_URL + '/account/login-api-token', body: { token: REST_TOKEN }, json: true, timeout: 30000 });
   const token = login?.data?.items?.[0]?.access;
   if (!token) return ['fout', 'Inloggen bij MendriX mislukt'];
   const p = await this.helpers.httpRequest({
     method: 'PATCH', url: REST_URL + '/order/orders/' + ordernummer + '/tasks/' + taskId, json: true, timeout: 60000,
-    body: { id: taskId, state: 'Completed' },
+    body: { id: taskId, state: 'Completed', completion: { timewindow: { begin: afgeleverd, end: afgeleverd } } },
     headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' }, returnFullResponse: true, ignoreHttpStatusErrors: true
   });
   if (p.statusCode !== 200 || p.body?.data?.items?.[0]?.state !== 'Completed') {
     return ['fout', 'MendriX weigerde (HTTP ' + p.statusCode + '): ' + JSON.stringify(p.body ?? '').slice(0, 300)];
   }
-  return ['lostaak afgerond', 'Lostaak ' + taskId + ' van order ' + ordernummer + ' op afgerond gezet (B-east: afgeleverd ' + afgeleverd + ')'];
+  return ['lostaak afgerond', 'Lostaak ' + taskId + ' van order ' + ordernummer + ' afgerond, uitvoertijd ' + afgeleverd];
 };
 
 const out = [];
