@@ -74,6 +74,31 @@ Body:   {"shipId": "123456", "vanaf": "2026-08-01"}   (vanaf is optioneel)
 | 404 | `{"error": "..."}`: geen orders of geen CMR gevonden |
 | 502 | `{"error": "..."}`: fout bij MendriX |
 
+## TEST: orders zoeken per planbak
+
+n8n-workflow **"MendriX TEST - Orders zoeken per planbak (formulier)"**
+(bron: `n8n/mendrix-planbak-test.workflow.ts`, formulierpad `mendrix-planbak-test`).
+Kies een planbak, een periode (standaard vandaag) en eventueel een zoektekst; je krijgt de
+orders met planstatus, factuurstatus, eerste taak en van/naar (maximaal de 100 nieuwste).
+
+De tabbladen bovenin het orderschema (Standaard, Planstatus Wachtend, Uitbesteed, …) zijn
+opgeslagen schermfilters. SOAP kent ze niet: `FilterName` en `FilterShortCut` worden genegeerd
+(getest op 30 oktober 2026). De workflow bootst ze daarom na met filtervelden die wel werken:
+
+| Planbak | Filter |
+|---|---|
+| Planstatus Wachtend | `OrderPlanStatusSet` = voorgepland (V) + niet bevestigd + ongepland (K) |
+| Planstatus Bezig | niet geladen + niet gelost (aanname) |
+| Planstatus Onafgerond | alles behalve afgerond en geannuleerd |
+| Planstatus Afgerond / Extern | `fsopsDone` / `fsopsExternal` |
+| Factuurstatus Offerte / Wachtend / Naar factuur | `OrderInvStatusSet` = `fsoisOffer` / `fsoisOpen` / `fsoisToInv` |
+| Probleemstatus | `Problem` = True |
+
+Getoetst: "Planstatus Wachtend" op 30 oktober 2026 gaf 30 orders: de 15 V- en 15 K-orders uit het
+orderschema. Tabbladen die op klant, product of uitvoerder filteren (Uitbesteed, Polytec,
+Dropshipments, Hoshizaki - DHL) zitten er nog niet in; daarvoor zijn de criteria van die
+tabbladen nodig. Let op: twee keer hetzelfde filterelement in één verzoek negeert MendriX.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
