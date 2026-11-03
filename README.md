@@ -99,6 +99,26 @@ orderschema. Tabbladen die op klant, product of uitvoerder filteren (Uitbesteed,
 Dropshipments, Hoshizaki - DHL) zitten er nog niet in; daarvoor zijn de criteria van die
 tabbladen nodig. Let op: twee keer hetzelfde filterelement in één verzoek negeert MendriX.
 
+## LIVE: ETA-vraag aan uitbesteders (concepten)
+
+n8n-workflow **"MendriX LIVE - ETA-vraag uitbesteders (concepten)"**
+(bron: `n8n/mendrix-eta-uitbesteed.workflow.ts`). Werkdagen om 06:45 (Europe/Amsterdam):
+
+1. SOAP: orders met een taak vandaag en voertuig 99999 UITBESTEDEN (database-Id 133); de laatste
+   lostaak moet vandaag zijn, met dat voertuig en een plan-uitvoerder (`OperatorId` op de taak).
+   Let op: het `Completion`-blok van een taak heeft een eigen `OperatorId`; dat wordt eerst weggehaald.
+2. REST: in het orderdossier de mail `*Verzoek_uitbesteding*.eml`; To/Cc daarvan (zonder roemaat.nl)
+   is de ontvanger. Orders zonder eigen verzoekmail krijgen het adres van een order van dezelfde uitvoerder.
+3. Per ontvanger één conceptmail (NL voor .nl/.be, DE voor .de/.at/.ch, anders EN) met ordernr.,
+   referentie, losadres en gepland lostijdvenster, plus een overzichtsconcept aan de gedeelde mailbox
+   met orders waarvoor geen adres gevonden is.
+4. Microsoft Graph `POST /users/{gedeelde mailbox}/messages`: het concept komt in Concepten van de
+   gedeelde mailbox; een collega controleert en verstuurt.
+
+Instellen: in **Configuratie** het adres van de gedeelde mailbox; in **Concept in gedeelde mailbox** een
+Microsoft Outlook-credential van iemand met volledige toegang tot (en "Verzenden als" op) die mailbox.
+Getest op 3 november 2026 (mailstap gesimuleerd): 31 orders, 13 concepten, 6 pakketorders zonder adres.
+
 ## n8n
 
 1. Open de workflow in n8n, of importeer `n8n/mendrix-order-bestanden.json`.
