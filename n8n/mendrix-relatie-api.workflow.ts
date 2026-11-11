@@ -75,6 +75,9 @@ for (const k of ['naam', 'adres', 'postcode', 'plaats']) {
 }
 if (!/^[A-Z]{2}$/.test(d.land)) fouten.push(blok + '.land moet een landcode van 2 letters zijn (bv. NL)');
 if (d.laadAdres && (!d.laadPostcode || !d.laadPlaats)) fouten.push('laadEnLosadres: postcode en plaats zijn verplicht als er een adres is');
+// MendriX accepteert maximaal 10 tekens in een postcode (11 of meer geeft 'String or binary data would be truncated').
+if (d.postcode.length > 10) fouten.push(blok + '.postcode is te lang (maximaal 10 tekens): "' + d.postcode + '". Zet alleen de postcode in dit veld en de plaats in ' + blok + '.plaats.');
+if (d.laadPostcode.length > 10) fouten.push('laadEnLosadres.postcode is te lang (maximaal 10 tekens): "' + d.laadPostcode + '". Zet alleen de postcode in dit veld en de plaats in laadEnLosadres.plaats.');
 return [{ json: { ok: fouten.length === 0, fouten, ...d } }];`
     }
   },
@@ -438,8 +441,9 @@ const respondError = node({
     position: [1540, 300],
     parameters: {
       respondWith: 'json',
-      responseBody: expr("{{ JSON.stringify({ status: 'fout', error: typeof $json.error === 'string' ? $json.error : ($json.error?.message ?? $json.message ?? 'Onbekende fout bij MendriX') }) }}"),
-      options: { responseCode: 502 }
+      // 422 in plaats van 502: Cloudflare vervangt een 502 van n8n door een eigen foutpagina, waardoor de echte melding verloren gaat.
+      responseBody: expr("{{ (() => { const m = typeof $json.error === 'string' ? $json.error : ($json.error?.message ?? $json.message ?? 'Onbekende fout bij MendriX'); const e = /truncated/i.test(m) ? 'Een veld is te lang voor MendriX. Let vooral op de postcodes (maximaal 10 tekens). Technische melding: ' + m : m; return JSON.stringify({ status: 'fout', error: e, fouten: [e] }); })() }}"),
+      options: { responseCode: 422 }
     }
   },
   output: [{}]

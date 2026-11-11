@@ -141,7 +141,7 @@ Body: {
 | 201 | `{"status":"aangemaakt","id":3630,"relatienummer":"58482","naam":"...","nietOpgeslagen":[],"waarschuwingen":[]}` |
 | 400 | `{"status":"ongeldig","fouten":[...]}`: naam/adres/postcode/plaats ontbreken of land is geen 2-letterige code |
 | 409 | `{"status":"bestaat_al","relatienummer":"56190",...}`: zelfde KvK-nummer, of zelfde naam en postcode |
-| 502 | `{"status":"fout","error":"..."}`: fout bij MendriX |
+| 422 | `{"status":"fout","error":"...","fouten":["..."]}`: MendriX of de verbinding gaf een fout (was 502; Cloudflare verving die door een HTML-pagina) |
 
 Getest op 6 oktober 2026: de 400 en de 409 (Konimpex). De 201 ook: "TEST Claude BV 2" →
 relatienummer 58485, met contactpersoon laad- en losadres "Doppie".
@@ -212,6 +212,19 @@ REST-login, dubbelcontrole (Konimpex wordt herkend, nummer 56190) en de foutenli
 invoer. Een nieuwe relatie of uitvoerder is op live **nog niet aangemaakt**.
 Status: aangezet (gepubliceerd) op 27 oktober 2026; de uitvoerder-route met nummer-invulling is op live nog niet met een echte aanmaak getest. Prompt voor de app:
 `docs/ai-studio-wijziging-live.md`.
+
+### Lessen uit live (11 november 2026)
+
+- **Postcode maximaal 10 tekens.** MendriX geeft bij 11 of meer tekens `String or binary data would be truncated`
+  (gemeten op de testrelatie: 10 lukt, 11 niet; een plaatsnaam van 40 tekens lukt wel). De workflow
+  controleert dit nu vooraf en geeft een 400 met de veldnaam. Aanleiding: laad- en losadres met postcode
+  "36208 WILDECK" en plaats "Duitsland" (uitleesfout in de app).
+- **Wijzigen is niet publiceren.** In n8n werkt een wijziging in een aangezette workflow pas na opnieuw
+  publiceren. Handmatige testruns draaien op het concept, de app op de gepubliceerde versie. Controleer na
+  elke wijziging of `activeVersionId` gelijk is aan `versionId` (`get_workflow_details`). De testwebhook
+  draaide daardoor tot 11 november op de versie van 6 oktober.
+- **Het laad- en losadres heeft geen eigen land.** `AddressTask` krijgt het land van het bedrijf. Een
+  Duits laadadres wordt dus als Nederland opgeslagen.
 
 ## n8n
 
