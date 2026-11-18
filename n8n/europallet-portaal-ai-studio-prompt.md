@@ -26,7 +26,7 @@ Geef de statuscode en de JSON van n8n ongewijzigd terug aan de frontend. Geef bi
 
 **Frontend.** De frontend roept alleen `/api/europallet` aan, nooit de n8n-URL rechtstreeks. Zet de sleutel nergens in de frontend-code, in `localStorage` of in de netwerkverzoeken van de browser. Er is geen instellingenscherm voor een sleutel.
 
-De gegevens worden elk heel uur ververst (de synchronisatie start op :00 en duurt ongeveer 2 minuten). Het veld `bijgewerkt` in elk antwoord geeft het tijdstip van de laatste synchronisatie. Toon dat rechtsboven als "Bijgewerkt: 18-11-2026 10:02". Laad de gegevens automatisch opnieuw als de pagina 15 minuten openstaat, en bied een knop "Vernieuwen".
+De gegevens worden twee keer per dag ververst, om 00:00 en 12:00 (de synchronisatie duurt ongeveer 2 minuten). Het veld `bijgewerkt` in elk antwoord geeft het tijdstip van de laatste synchronisatie. Toon dat rechtsboven als "Bijgewerkt: 18-11-2026 10:02". Laad de gegevens automatisch opnieuw als de pagina 15 minuten openstaat, en bied een knop "Vernieuwen".
 
 ### Body: overzicht
 
