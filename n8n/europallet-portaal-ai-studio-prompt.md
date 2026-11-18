@@ -2,17 +2,29 @@
 
 Plak de tekst hieronder (vanaf "Bouw een interne webapp") in Google AI Studio (Build).
 
+Voeg vóór of na het plakken in AI Studio een secret toe: **Settings → Secrets**, naam
+`EUROPALLET_API_KEY`, waarde = de API-sleutel van de n8n-workflow (node "Verzoek controleren").
+De app gebruikt die sleutel alleen in het server-onderdeel; hij komt nooit in de browser.
+
 ---
 
 Bouw een interne webapp "Europallet-portaal" voor A. Roemaat Transport (planning en administratie). De app toont de europallet-emballage (pallets in en uit) uit ons TMS MendriX, per klant en per uitvoerder. Taal van de app: Nederlands. De app leest alleen; er wordt nooit iets gewijzigd.
 
 ## Databron (enige bron, geen andere API's of AI-aanroepen)
 
+Maak een full-stack app: een frontend en een klein server-onderdeel (Node.js).
+
+**Server (proxy).** Het server-onderdeel heeft één endpoint `POST /api/europallet`. Dat stuurt de JSON-body ongewijzigd door naar
+
 `POST https://roemaat.app.n8n.cloud/webhook/europallet-portaal`
 
-Headers:
+met de headers:
 - `Content-Type: application/json`
-- `X-Api-Key: <sleutel>`. De gebruiker vult de sleutel één keer in via een instellingenscherm (tandwiel rechtsboven). Bewaar hem in `localStorage` onder `europallet-api-key`. Zet de sleutel nooit in de code.
+- `X-Api-Key`: de waarde van het secret `EUROPALLET_API_KEY` (uit de Secrets in AI Studio, server-side gelezen als omgevingsvariabele).
+
+Geef de statuscode en de JSON van n8n ongewijzigd terug aan de frontend. Geef bij een netwerkfout 502 met `{ "error": "n8n is niet bereikbaar" }`. Ontbreekt het secret, geef dan 500 met `{ "error": "Secret EUROPALLET_API_KEY ontbreekt in de app-instellingen" }`. Laat alleen de velden `actie`, `van`, `tot`, `groep`, `status`, `klantId`, `uitvoerder` en `zoek` door.
+
+**Frontend.** De frontend roept alleen `/api/europallet` aan, nooit de n8n-URL rechtstreeks. Zet de sleutel nergens in de frontend-code, in `localStorage` of in de netwerkverzoeken van de browser. Er is geen instellingenscherm voor een sleutel.
 
 De gegevens worden elk heel uur ververst (de synchronisatie start op :00 en duurt ongeveer 2 minuten). Het veld `bijgewerkt` in elk antwoord geeft het tijdstip van de laatste synchronisatie. Toon dat rechtsboven als "Bijgewerkt: 18-11-2026 10:02". Laad de gegevens automatisch opnieuw als de pagina 15 minuten openstaat, en bied een knop "Vernieuwen".
 
@@ -69,7 +81,7 @@ Dezelfde filters als bij `overzicht`. Antwoord: `{ "aantal": 3, "afgekapt": fals
 
 Maximaal 5000 regels per antwoord. Is `afgekapt` true, toon dan "Meer dan 5000 regels; verklein de periode of filter".
 
-Bij een fout komt `{ "error": "..." }` terug, met status 400 (fout in het verzoek) of 401 (verkeerde of ontbrekende sleutel). Toon de foutmelding. Vraag bij 401 om de sleutel opnieuw in te vullen.
+Bij een fout komt `{ "error": "..." }` terug, met status 400 (fout in het verzoek) of 401 (verkeerde of ontbrekende sleutel). Toon de foutmelding. Bij 401 of 500: toon "De API-sleutel in de app-instellingen (Secrets: EUROPALLET_API_KEY) ontbreekt of klopt niet."
 
 ## Begrippen (gebruik deze woorden in de app)
 
@@ -98,4 +110,4 @@ Zakelijk en rustig. Lichte achtergrond met een donkergroen accent (#2f6b4f) voor
 
 ## Technisch
 
-React + TypeScript + Tailwind. Alle fetch-aanroepen in één module `api.ts` met de types uit de voorbeelden hierboven. Vraag bij elke filterwijziging het overzicht opnieuw op (met een debounce van 300 ms op het zoekveld). Toon tijdens het laden een skeleton. Is er nog geen API-sleutel, open dan meteen het instellingenscherm.
+React + TypeScript + Tailwind voor de frontend, Node.js voor het server-onderdeel (de proxy hierboven). Alle fetch-aanroepen van de frontend in één module `api.ts` (naar `/api/europallet`) met de types uit de voorbeelden hierboven. Vraag bij elke filterwijziging het overzicht opnieuw op (met een debounce van 300 ms op het zoekveld). Toon tijdens het laden een skeleton.
