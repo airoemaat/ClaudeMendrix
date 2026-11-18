@@ -103,3 +103,32 @@ De zip komt in `downloads/dossier_order_<nr>.zip`, de uitgepakte bestanden in
 - Let op: in de bestaande n8n-workflows "Download Dossier Zipped" en "Order Intake"
   staan gebruikersnaam en wachtwoord als platte tekst in een Set-node. Verplaats die
   naar een credential.
+
+## Europallet-portaal (intern, semi-realtime)
+
+Intern portaal voor de europallet-emballage van alle klanten. Frontend wordt gebouwd in
+Google AI Studio met de prompt in `n8n/europallet-portaal-ai-studio-prompt.md`.
+
+| Onderdeel | Wat het doet |
+|---|---|
+| n8n-datatabel **"Europallet emballage (MendriX LIVE)"** | Eén regel per emballagetransactie (laad- of lostaak) met klant, uitvoerder, in/uit en status. Sleutel: `transId`. |
+| n8n-workflow **"MendriX LIVE - Europallet-emballage synchroniseren (elk uur)"** (bron: `n8n/europallet-sync.workflow.ts`) | Elk uur om :17 de orders met een taak van gisteren t/m morgen; via het formulier "Handmatig inlezen" een eigen periode van maximaal 8 dagen. Alleen lezen in MendriX (SOAP `Request…`-commando's). |
+| n8n-workflow **"Europallet portaal - API voor app (MendriX LIVE)"** (bron: `n8n/europallet-portaal-api.workflow.ts`) | `POST /webhook/europallet-portaal` met `X-Api-Key`. Leest alleen de datatabel, dus geen belasting op MendriX per bezoeker. |
+
+Werkwijze van de synchronisatie (licht voor MendriX):
+
+1. `RequestOrdersNormalIds` voor de periode (alleen ID's).
+2. `RequestPackagingTransactions` met `Filter Type="TEoFilterPackagingTransactions"` en
+   `OrderIdsAsCsv` (per 250 orders); orders zonder Europallet of Euro VUURWERK vallen af.
+3. Alleen voor de overgebleven orders `RequestOrdersNormal` met `Nested=False` (klant, taken,
+   voertuig, uitvoerder), daarna `RequestEmployees` en `RequestClients` voor de namen.
+4. Upsert in de datatabel op `transId`.
+
+Indeling "uitgevoerd door" per taak: voertuig 99999 (intern Id 133) = *99999 uitbesteed* (naam =
+gekozen vervoerder); uitvoerder met kenmerk eigenrijder = *eigen uitbesteder*; geen uitvoerder of
+een dummy-uitvoerder ("--…", "- Rit …") = *niet ingepland*; overige = *eigen chauffeur*.
+
+Beperkingen: een transactie die in MendriX wordt verwijderd blijft in de datatabel staan;
+de periode in het portaal is de geplande datum van de taak. In `n8n/europallet-sync.workflow.ts`
+staan de SOAP-gegevens als `VUL_IN_…`; in n8n staan ze (net als in de andere LIVE-workflows)
+nog in de Code-nodes en horen ze naar een credential.
