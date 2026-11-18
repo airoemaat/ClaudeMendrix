@@ -113,7 +113,7 @@ Google AI Studio met de prompt in `n8n/europallet-portaal-ai-studio-prompt.md`.
 |---|---|
 | n8n-datatabel **"Europallet emballage (MendriX LIVE)"** | Eén regel per emballagetransactie (laad- of lostaak) met klant, uitvoerder, in/uit en status. Sleutel: `transId`. |
 | n8n-workflow **"MendriX LIVE - Europallet-emballage synchroniseren (elk uur)"** (bron: `n8n/europallet-sync.workflow.ts`) | Elk uur om :17 de orders met een taak van gisteren t/m morgen; via het formulier "Handmatig inlezen" een eigen periode van maximaal 8 dagen. Alleen lezen in MendriX (SOAP `Request…`-commando's). |
-| n8n-workflow **"Europallet portaal - API voor app (MendriX LIVE)"** (bron: `n8n/europallet-portaal-api.workflow.ts`) | `POST /webhook/europallet-portaal` met `X-Api-Key`. Leest alleen de datatabel, dus geen belasting op MendriX per bezoeker. |
+| n8n-workflow **"Europallet portaal - API voor app (MendriX LIVE)"** (bron: `n8n/europallet-portaal-api.workflow.ts`) | `POST /webhook/europallet-portaal` met `X-Api-Key`. De sleutel wordt in de node "Verzoek controleren" gecontroleerd (in de repo: `VUL_IN_API_SLEUTEL`); verkeerde of ontbrekende sleutel geeft 401. Leest alleen de datatabel, dus geen belasting op MendriX per bezoeker. |
 
 Werkwijze van de synchronisatie (licht voor MendriX):
 

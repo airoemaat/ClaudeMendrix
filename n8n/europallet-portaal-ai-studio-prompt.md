@@ -69,7 +69,7 @@ Dezelfde filters als bij `overzicht`. Antwoord: `{ "aantal": 3, "afgekapt": fals
 
 Maximaal 5000 regels per antwoord. Is `afgekapt` true, toon dan "Meer dan 5000 regels; verklein de periode of filter".
 
-Bij een fout komt `{ "error": "..." }` terug, met status 400 (fout in het verzoek) of 401/403 (verkeerde of ontbrekende sleutel). Toon de foutmelding. Vraag bij 401/403 om de sleutel opnieuw in te vullen.
+Bij een fout komt `{ "error": "..." }` terug, met status 400 (fout in het verzoek) of 401 (verkeerde of ontbrekende sleutel). Toon de foutmelding. Vraag bij 401 om de sleutel opnieuw in te vullen.
 
 ## Begrippen (gebruik deze woorden in de app)
 
