@@ -14,7 +14,7 @@ Headers:
 - `Content-Type: application/json`
 - `X-Api-Key: <sleutel>`. De gebruiker vult de sleutel één keer in via een instellingenscherm (tandwiel rechtsboven). Bewaar hem in `localStorage` onder `europallet-api-key`. Zet de sleutel nooit in de code.
 
-De gegevens worden elk uur ververst (om ongeveer 17 minuten over het hele uur). Het veld `bijgewerkt` in elk antwoord geeft het tijdstip van de laatste synchronisatie. Toon dat rechtsboven als "Bijgewerkt: 18-11-2026 09:17". Laad de gegevens automatisch opnieuw als de pagina 15 minuten openstaat, en bied een knop "Vernieuwen".
+De gegevens worden elk heel uur ververst (de synchronisatie start op :00 en duurt ongeveer 2 minuten). Het veld `bijgewerkt` in elk antwoord geeft het tijdstip van de laatste synchronisatie. Toon dat rechtsboven als "Bijgewerkt: 18-11-2026 10:02". Laad de gegevens automatisch opnieuw als de pagina 15 minuten openstaat, en bied een knop "Vernieuwen".
 
 ### Body: overzicht
 
