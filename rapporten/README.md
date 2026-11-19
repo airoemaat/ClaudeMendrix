@@ -64,7 +64,8 @@ Zonder RtmConverter (bijv. op Linux) moeten de invoerbestanden al tekst zijn.
 
 ## Grenzen
 
-- Gedraaid op de echte Ritlijst en "3a. Vrachtbrief CMR - Roemaat - Vuurwerk" (20 okt 2026):
+- Gedraaid op de echte "2. Ritlijst uitgebreid - Roemaat - Met extern depot" met
+  "3a. Vrachtbrief CMR - Roemaat - Vuurwerk" (20 okt 2026) en met "... - Vuurwerk - v2" (19 nov 2026):
   structuur en verwijzingen kloppen, het ritlijst-deel is ongewijzigd. Of Report Builder het
   rapport opent en goed genereert, zie je pas in de designer.
 - Alleen SQL die als tekst is bewerkt (`EditSQLAsText = True`) wordt aangepast. Bij een
