@@ -16,7 +16,8 @@ const call = async inner => {
   if (!ret) throw new Error('Geen geldig SOAP-antwoord: ' + raw.slice(0, 500));
   return unescapeXml(ret[1]);
 };
-// SH-nummers zonder montage (uit de leverlijst), per SH de order zoeken (Search = orderkenmerk).
+// Standaard alleen SH-nummers met Montage = Ja uit de leverlijst; Montage = Nee wordt genegeerd.
+// Per SH de order zoeken (Search = orderkenmerk).
 const shs = [...new Set(String(c.shLijst).split(/[\s,;]+/).filter(Boolean))];
 const tag = (b, n) => unescapeXml((String(b).match(new RegExp('<' + n + '(?:\\s[^>]*)?>([^<]*)</' + n + '>')) || [])[1] || '').trim();
 const pool = async (items, n, fn) => { const r = new Array(items.length); let k = 0;
@@ -51,7 +52,7 @@ const perZending = gevonden.map(g => {
     lossen: l.map(t => t.emballage + ' in ' + t.in + ' / uit ' + t.uit).join('; '), gelijk: l.filter(t => t.in === t.uit).length, ongelijk: l.filter(t => t.in !== t.uit).length };
 });
 return [{ json: { perZending,
-  shZonderMontage: shs.length,
+  shMetMontage: shs.length,
   ordersGevonden: orderIds.length,
   shNietGevonden: gevonden.filter(g => !g.ids.length).map(g => g.sh),
   shMeerdereOrders: gevonden.filter(g => g.ids.length > 1),
