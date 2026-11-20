@@ -199,7 +199,8 @@ if (actie === 'ophalen') {
       postal_code: tag(adres, 'PostalCode'),
       city: tag(adres, 'Place'),
       country: land,
-      reference: orderkenmerk && orderkenmerk !== ordernummer ? ordernummer + '/ ' + orderkenmerk : ordernummer,
+      // B-east accepteert maximaal 20 tekens; het orderkenmerk erbij maakte de referentie te lang.
+      reference: ordernummer,
       collo: Math.min(10, Math.max(1, Math.round(parts) || 1))
     },
     colliMendrix: parts,
@@ -246,6 +247,7 @@ const productId = parseInt(s(req.productId), 10);
 if (Number.isInteger(productId)) body.product_id = productId;
 const ontbreekt = ['last_name', 'email_address', 'phone_number', 'country', 'address1', 'postal_code', 'city'].filter(k => !body[k]);
 if (ontbreekt.length) return antwoord(400, { error: 'Verplichte velden ontbreken: ' + ontbreekt.join(', '), velden: ontbreekt });
+if (body.reference.length > 20) return antwoord(400, { error: 'Referentie mag maximaal 20 tekens zijn (B-east); nu ' + body.reference.length + '.', velden: ['reference'] });
 if (req.ookAlsBestaat !== true) {
   const dubbel = await bestaand();
   if (dubbel.length) return antwoord(409, { error: 'Order ' + ordernummer + ' staat al in B-east. Stuur ookAlsBestaat: true om toch een zending aan te maken.', bestaandeZendingen: dubbel });

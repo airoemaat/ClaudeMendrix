@@ -32,7 +32,7 @@ Response 200:
     "postal_code": "1521 RR",
     "city": "Wormerveer",
     "country": "NL",
-    "reference": "1425727/ HENL-SO073087",
+    "reference": "1425727",
     "collo": 1
   },
   "colliMendrix": 0,
@@ -97,7 +97,7 @@ Response 200: zelfde labelvelden als hierboven, plus id, barcode, referentie, ve
      company = Bedrijfsnaam, first_name = Voornaam, last_name = Achternaam / naam ontvanger (verplicht),
      email_address = E-mail (verplicht), phone_number = Telefoon (verplicht), address1 = Straat en huisnummer (verplicht),
      address2 = Adresregel 2, postal_code = Postcode (verplicht), city = Plaats (verplicht),
-     country = Land (2 letters, verplicht), reference = Referentie, collo = Aantal colli (1-10).
+     country = Land (2 letters, verplicht), reference = Referentie (maximaal 20 tekens), collo = Aantal colli (1-10).
      Lege verplichte velden rood markeren; e-mail en telefoon zijn in MendriX vaak leeg.
    - Als colliMendrix groter is dan 10: melding dat B-east maximaal 10 colli per zending accepteert.
    - Het label wordt altijd direct aangevraagd (status ingecheckt); daar is geen keuze voor.

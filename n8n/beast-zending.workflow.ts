@@ -204,8 +204,8 @@ const velden = [
   veld('Postcode', 'postal_code', o.postcode, { requiredField: true }),
   veld('Plaats', 'city', o.plaats, { requiredField: true }),
   veld('Land (ISO-code, bv. NL)', 'country', o.land, { requiredField: true }),
-  // Zelfde vorm als de handmatig aangemaakte zendingen: "1425727/ HENL-SO073087".
-  veld('Referentie', 'reference', o.referentie && o.referentie !== o.ordernummer ? o.ordernummer + '/ ' + o.referentie : o.ordernummer),
+  // Alleen het ordernummer: B-east accepteert maximaal 20 tekens.
+  veld('Referentie', 'reference', o.ordernummer),
   veld('Aantal colli (1-10)', 'collo', o.colli, { fieldType: 'number', requiredField: true }),
   { fieldLabel: 'Label direct aanvragen bij de vervoerder?', fieldName: 'request_label', fieldType: 'dropdown', defaultValue: 'Ja, label aanvragen (status ingecheckt)', requiredField: true,
     fieldOptions: { values: [{ option: 'Ja, label aanvragen (status ingecheckt)' }, { option: 'Nee, zending blijft aanpasbaar in B-east (status nieuw)' }] } }
