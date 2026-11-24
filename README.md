@@ -112,7 +112,7 @@ Alleen lezen in MendriX LIVE.
 
 ```
 POST https://roemaat.app.n8n.cloud/webhook/emballage-retour
-Header: X-Api-Key: <sleutel uit n8n-credential "Header Auth account">
+Header: X-Api-Key: <eigen sleutel van deze app, staat als apiKey in de node Configuratie>
 Body:   {"bestandsnaam": "Leverlijst.pdf", "pdfBase64": "<base64 van de PDF>"}
 ```
 
@@ -127,7 +127,7 @@ Stappen:
    colli/verpakking/maten/laadmeters leeg.
 
 Antwoord 200: JSON met `samenvatting`, `retouren`, `nietGevonden`, `zonderEmballage`, `meerdereOrders` en het
-Excel-bestand als `bestandBase64`. Fouten: 400 (geen/ongeldige PDF), 422 (onleesbaar of geen montage), 502 (MendriX).
+Excel-bestand als `bestandBase64`. Fouten: 401 (verkeerde sleutel), 400 (geen/ongeldige PDF), 422 (onleesbaar of geen montage), 502 (MendriX).
 
 Voor tests kan in plaats van `pdfBase64` ook `leverlijstTekst` (de uitgelezen tekst) worden gestuurd.
 Getest op 24 november 2026 met de leverlijst van 23-09-2026: 31 montage-regels, 26 retourzendingen, 47 stuks.

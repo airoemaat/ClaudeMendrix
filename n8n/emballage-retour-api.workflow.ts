@@ -3,8 +3,7 @@ import { workflow, node, trigger, ifElse, expr } from '@n8n/workflow-sdk';
 const webhook = trigger({
   type: 'n8n-nodes-base.webhook', version: 2.1,
   config: { name: 'App-aanvraag (webhook)', position: [0, 0],
-    parameters: { httpMethod: 'POST', path: 'emballage-retour', authentication: 'headerAuth', responseMode: 'responseNode', options: { allowedOrigins: '*' } },
-    credentials: { httpHeaderAuth: { id: 'VPqPuCy0FN0fAg8E', name: 'Header Auth account' } } },
+    parameters: { httpMethod: 'POST', path: 'emballage-retour', authentication: 'none', responseMode: 'responseNode', options: { allowedOrigins: '*' } } },
   output: [{ body: { pdfBase64: 'JVBERi0...', bestandsnaam: 'Leverlijst.pdf' } }]
 });
 
@@ -15,6 +14,7 @@ const config = node({
       { id: 'soap', name: 'soapUrl', value: 'http://connection.roemaat.nl:5564/soap/ICustomLinkSoap', type: 'string' },
       { id: 'su', name: 'soapUser', value: 'VUL_IN_SOAP_GEBRUIKERSNAAM', type: 'string' },
       { id: 'sp', name: 'soapPwd', value: 'VUL_IN_SOAP_WACHTWOORD', type: 'string' },
+      { id: 'key', name: 'apiKey', value: 'VUL_IN_API_SLEUTEL_APP', type: 'string' },
       { id: 'zv', name: 'zoekDagenVoor', value: 14, type: 'number' },
       { id: 'zn', name: 'zoekDagenNa', value: 14, type: 'number' },
       { id: 'wd', name: 'werkdagenNaLossen', value: 5, type: 'number' },
@@ -29,7 +29,7 @@ const config = node({
 });
 
 const invoer = node({ type: 'n8n-nodes-base.code', version: 2,
-  config: { name: 'Invoer controleren', position: [440, 0], parameters: { mode: 'runOnceForAllItems', jsCode: "// Invoer van de app: JSON { pdfBase64, bestandsnaam } (normaal) of { leverlijstTekst } (test/terugval).\nconst body = $('App-aanvraag (webhook)').first().json.body ?? {};\nconst tekst = typeof body.leverlijstTekst === 'string' ? body.leverlijstTekst.trim() : '';\nlet b64 = typeof body.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';\nb64 = b64.replace(/^data:[^;]+;base64,/, '').replace(/\\s+/g, '');\nif (tekst) return [{ json: { modus: 'tekst', tekst, bestandsnaam: body.bestandsnaam || 'leverlijst.txt' } }];\nif (!b64) return [{ json: { fout: 'Stuur de leverlijst mee als pdfBase64 (base64 van het PDF-bestand).' } }];\nconst buf = Buffer.from(b64, 'base64');\nif (buf.subarray(0, 4).toString() !== '%PDF') return [{ json: { fout: 'Het bestand is geen PDF. Upload de definitieve leverlijst als PDF.' } }];\nconst naam = String(body.bestandsnaam || 'leverlijst.pdf');\nreturn [{ json: { modus: 'pdf', bestandsnaam: naam }, binary: { data: await this.helpers.prepareBinaryData(buf, naam, 'application/pdf') } }];\n" } },
+  config: { name: 'Invoer controleren', position: [440, 0], parameters: { mode: 'runOnceForAllItems', jsCode: "// Invoer van de app (header X-Api-Key): JSON { pdfBase64, bestandsnaam } (normaal) of { leverlijstTekst } (test/terugval).\nconst req = $('App-aanvraag (webhook)').first().json;\n// API-sleutel controleren (header X-Api-Key, eigen sleutel voor deze app).\nconst sleutel = String(req.headers?.['x-api-key'] ?? '');\nif (!sleutel || sleutel !== $('Configuratie').first().json.apiKey) return [{ json: { fout: 'API-sleutel ongeldig.', status: 401 } }];\nconst body = req.body ?? {};\nconst tekst = typeof body.leverlijstTekst === 'string' ? body.leverlijstTekst.trim() : '';\nlet b64 = typeof body.pdfBase64 === 'string' ? body.pdfBase64.trim() : '';\nb64 = b64.replace(/^data:[^;]+;base64,/, '').replace(/\\s+/g, '');\nif (tekst) return [{ json: { modus: 'tekst', tekst, bestandsnaam: body.bestandsnaam || 'leverlijst.txt' } }];\nif (!b64) return [{ json: { status: 400, fout: 'Stuur de leverlijst mee als pdfBase64 (base64 van het PDF-bestand).' } }];\nconst buf = Buffer.from(b64, 'base64');\nif (buf.subarray(0, 4).toString() !== '%PDF') return [{ json: { status: 400, fout: 'Het bestand is geen PDF. Upload de definitieve leverlijst als PDF.' } }];\nconst naam = String(body.bestandsnaam || 'leverlijst.pdf');\nreturn [{ json: { modus: 'pdf', bestandsnaam: naam }, binary: { data: await this.helpers.prepareBinaryData(buf, naam, 'application/pdf') } }];\n" } },
   output: [{ modus: 'pdf', bestandsnaam: 'Leverlijst.pdf' }] });
 
 const invoerOk = ifElse({ version: 2.2, config: { name: 'Invoer in orde?', position: [660, 0], parameters: {
@@ -79,7 +79,7 @@ const respOk = node({ type: 'n8n-nodes-base.respondToWebhook', version: 1.5,
   output: [{}] });
 
 const respInvoer = node({ type: 'n8n-nodes-base.respondToWebhook', version: 1.5,
-  config: { name: 'Antwoord: ongeldige invoer', position: [880, 200], parameters: { respondWith: 'json', responseBody: expr("{{ JSON.stringify({ ok: false, error: $json.fout }) }}"), options: { responseCode: 400 } } },
+  config: { name: 'Antwoord: ongeldige invoer', position: [880, 200], parameters: { respondWith: 'json', responseBody: expr("{{ JSON.stringify({ ok: false, error: $json.fout }) }}"), options: { responseCode: expr('{{ $json.status ?? 400 }}') } } },
   output: [{}] });
 
 const respPdf = node({ type: 'n8n-nodes-base.respondToWebhook', version: 1.5,
