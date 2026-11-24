@@ -103,3 +103,31 @@ De zip komt in `downloads/dossier_order_<nr>.zip`, de uitgepakte bestanden in
 - Let op: in de bestaande n8n-workflows "Download Dossier Zipped" en "Order Intake"
   staan gebruikersnaam en wachtwoord als platte tekst in een Set-node. Verplaats die
   naar een credential.
+
+## Emballage-retour: leverlijst naar Boomerang-bestand (API voor app)
+
+n8n-workflow **"MendriX LIVE - Emballage-retour Boomerang (API voor app)"**
+(bron: `n8n/emballage-retour-api.workflow.ts`, prompt voor de frontend: `n8n/emballage-retour-ai-studio-prompt.md`).
+Alleen lezen in MendriX LIVE.
+
+```
+POST https://roemaat.app.n8n.cloud/webhook/emballage-retour
+Header: X-Api-Key: <sleutel uit n8n-credential "Header Auth account">
+Body:   {"bestandsnaam": "Leverlijst.pdf", "pdfBase64": "<base64 van de PDF>"}
+```
+
+Stappen:
+1. PDF-tekst uitlezen. Per regel staan Kooiaap en Montage als "Ja" vóór het SH-nummer: twee keer "Ja" = Montage = Ja.
+   Alleen die zendingen gaan door; Montage = Nee wordt genegeerd.
+2. Per SH-nummer de order zoeken (orderkenmerk, leverlijstdatum ±14 dagen).
+3. Emballagetransacties (`RequestPackagingTransactions`) van de lostaak: in ≠ uit → retour, op te halen = uit − in.
+4. Losadres, telefoon, instructies en werkelijke losdatum uit de lostaak.
+5. Boomerang-bestand (kolommen zoals het voorbeeld van 06-11-2026): laden = losadres klant,
+   lossen = Roemaat Lichtenvoorde, datums = losdatum + 5 werkdagen, orderkenmerk = SH-nummer,
+   colli/verpakking/maten/laadmeters leeg.
+
+Antwoord 200: JSON met `samenvatting`, `retouren`, `nietGevonden`, `zonderEmballage`, `meerdereOrders` en het
+Excel-bestand als `bestandBase64`. Fouten: 400 (geen/ongeldige PDF), 422 (onleesbaar of geen montage), 502 (MendriX).
+
+Voor tests kan in plaats van `pdfBase64` ook `leverlijstTekst` (de uitgelezen tekst) worden gestuurd.
+Getest op 24 november 2026 met de leverlijst van 23-09-2026: 31 montage-regels, 26 retourzendingen, 47 stuks.
