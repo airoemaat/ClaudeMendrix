@@ -46,12 +46,37 @@ for (let i = 0; i < orderIds.length; i += 50) {
 // Alleen transacties op de lostaak (TaskTypeEx 2); in en uit vergelijken per regel.
 const lossen = tx.filter(t => t.taakTypeEx === '2' || (!t.taakTypeEx && t.taakType === '2'));
 const afwijkend = lossen.filter(t => t.in !== t.uit).map(t => ({ zending: (orderNaarSh[t.orderId] || []).join(', '), ...t, verschil: t.in - t.uit }));
+// Losadres per order met afwijking (lostaak uit de order) voor de retourzending.
+const section = (b, n) => (String(b ?? '').match(new RegExp('<' + n + '[\\s>][\\s\\S]*?</' + n + '>')) || [])[0] || '';
+const geldig = d => d && !d.startsWith('1899');
+const retourOrders = [...new Set(afwijkend.map(t => t.orderId))];
+const retouren = [];
+for (let i = 0; i < retourOrders.length; i += 10) {
+  const p = await call('<EoCustomLinkRequestOrdersNormal Type="TEoCustomLinkRequestOrdersNormal"><Nested>False</Nested>' +
+    '<Filter Type="TEoFilterOrdersNormal"><KeysExplicitAsCsv>' + retourOrders.slice(i, i + 10).join(',') + '</KeysExplicitAsCsv></Filter></EoCustomLinkRequestOrdersNormal>');
+  for (const o of p.match(/<EoOrderMx[\s>][\s\S]*?<\/EoOrderMx>/g) || []) {
+    const orderId = tag(section(o, 'OrderId'), 'Id');
+    const taakIds = new Set(afwijkend.filter(t => t.orderId === orderId).map(t => t.taakId));
+    const taken = o.match(/<EoTaskMx[\s>][\s\S]*?<\/EoTaskMx>/g) || [];
+    const los = taken.find(t => taakIds.has(tag(section(t, 'TaskId'), 'Id'))) || taken[taken.length - 1];
+    const adres = section(los, 'Address');
+    const con = section(los, 'Connectivity');
+    const kaal = String(los).replace(/<(Address|Connectivity|Completion|GoodsToTasks|OperatorId|VehicleId)[\s>][\s\S]*?<\/\1>/g, '');
+    const comp = section(los, 'Completion');
+    const datum = [tag(section(comp, 'Actual'), 'DateTimeBegin'), tag(section(kaal, 'Planned'), 'DateTimeBegin'), tag(section(kaal, 'Requested'), 'DateTimeBegin')].find(geldig) || '';
+    retouren.push({ orderId, zending: (orderNaarSh[orderId] || []).join(', '), referentie: tag(o, 'Reference'),
+      naam: tag(adres, 'Name'), straat: tag(adres, 'Street'), huisnummer: tag(adres, 'Number'), postcode: tag(adres, 'PostalCode'),
+      plaats: tag(adres, 'Place'), land: tag(adres, 'Country') || tag(adres, 'CountryCode'),
+      telefoon: tag(con, 'Phone') || tag(con, 'Mobile'), instructies: tag(kaal, 'Instructions'), losdatum: datum,
+      emballage: afwijkend.filter(t => t.orderId === orderId).map(t => ({ soort: t.emballage, in: t.in, uit: t.uit, ophalen: Math.max(t.uit - t.in, 0) })) });
+  }
+}
 const perZending = gevonden.map(g => {
   const l = lossen.filter(t => g.ids.includes(t.orderId));
   return { sh: g.sh, orders: g.ids.join(','), transactiesTotaal: tx.filter(t => g.ids.includes(t.orderId)).length,
     lossen: l.map(t => t.emballage + ' in ' + t.in + ' / uit ' + t.uit).join('; '), gelijk: l.filter(t => t.in === t.uit).length, ongelijk: l.filter(t => t.in !== t.uit).length };
 });
-return [{ json: { perZending,
+return [{ json: { retouren, perZending,
   shMetMontage: shs.length,
   ordersGevonden: orderIds.length,
   shNietGevonden: gevonden.filter(g => !g.ids.length).map(g => g.sh),
