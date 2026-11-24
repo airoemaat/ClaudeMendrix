@@ -61,7 +61,7 @@ De gebruiker uploadt de definitieve leverlijst (PDF) van Xidoor/Svedex. De app s
 Status 400, 422 of 502 met `{ "ok": false, "error": "<Nederlandse foutmelding>" }`. Toon `error` letterlijk in een rode melding. Bij 401/403: "API-sleutel ongeldig." Bij een netwerkfout of timeout: "Geen verbinding met de server, probeer het opnieuw."
 
 ## Schermen en gedrag
-1. **Uploadvak (drag & drop of bestand kiezen).** Alleen `.pdf` toestaan, maximaal 10 MB. Lees het bestand met `FileReader.readAsDataURL` en stuur alleen het deel na de komma als `pdfBase64`. Stuur de originele bestandsnaam mee als `bestandsnaam`.
+1. **Uploadvak (drag & drop of bestand kiezen).** Alleen `.pdf` toestaan, maximaal 10 MB. De bestandsnaam kan elke keer anders zijn: controleer niet op de naam, alleen op de extensie `.pdf`. Lees het bestand met `FileReader.readAsDataURL` en stuur alleen het deel na de komma als `pdfBase64`. Stuur de originele bestandsnaam mee als `bestandsnaam` (alleen ter informatie). Neem voor de download altijd de `bestandsnaam` uit het antwoord van de API, niet de naam van de upload.
 2. **Knop "Verwerken"**, uitgeschakeld tot er een PDF gekozen is en tijdens het verwerken.
 3. **Na een geslaagd antwoord:**
    - Een kop "Leverlijst {leverlijstDatum}" met tegels voor: montage-zendingen, orders gevonden, retourzendingen, stuks op te halen.
