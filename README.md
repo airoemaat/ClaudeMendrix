@@ -103,3 +103,14 @@ De zip komt in `downloads/dossier_order_<nr>.zip`, de uitgepakte bestanden in
 - Let op: in de bestaande n8n-workflows "Download Dossier Zipped" en "Order Intake"
   staan gebruikersnaam en wachtwoord als platte tekst in een Set-node. Verplaats die
   naar een credential.
+
+## Tijdelijk: orderkenmerk wijzigen (Lesli)
+
+n8n-workflow **"MendriX LIVE - Orderkenmerk wijzigen Lesli (tijdelijk)"**
+(bron: `n8n/orderkenmerk-wijzigen.workflow.ts`). In de node **Configuratie** staat per regel
+`ordernummer;huidig kenmerk;nieuw kenmerk`. Met `doorvoeren = false` wordt alleen gelezen en
+gecontroleerd; met `true` wordt de order opgehaald (`RequestOrdersNormal`, Nested), alleen
+`<Reference>` op orderniveau vervangen en de volledige order teruggestuurd (`StoreOrdersNormal`).
+De REST-API heeft geen veld voor het orderkenmerk (`PATCH /order/orders/{id}` kent alleen
+`productId` en `automaticArticlesMode`). Er wordt alleen gewijzigd als het huidige kenmerk exact
+de oude waarde is; daarna wordt teruggelezen en gecontroleerd (kenmerk, aantal taken en goederen).
