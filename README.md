@@ -114,3 +114,7 @@ gecontroleerd; met `true` wordt de order opgehaald (`RequestOrdersNormal`, Neste
 De REST-API heeft geen veld voor het orderkenmerk (`PATCH /order/orders/{id}` kent alleen
 `productId` en `automaticArticlesMode`). Er wordt alleen gewijzigd als het huidige kenmerk exact
 de oude waarde is; daarna wordt teruggelezen en gecontroleerd (kenmerk, aantal taken en goederen).
+
+De orders gaan per portie van 10 door een Loop, omdat n8n een Code-node na 60 seconden stopt.
+Node **Samenvatting** toont aantallen per resultaat (`gewijzigd`, `al goed`, `overgeslagen`, `fout`)
+en de orders die aandacht nodig hebben. Opnieuw draaien is veilig: al omgezette orders geven `al goed`.
