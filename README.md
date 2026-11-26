@@ -128,7 +128,12 @@ Indeling "uitgevoerd door" per taak: voertuig 99999 (intern Id 133) = *99999 uit
 gekozen vervoerder); uitvoerder met kenmerk eigenrijder = *eigen uitbesteder*; geen uitvoerder of
 een dummy-uitvoerder ("--…", "- Rit …") = *niet ingepland*; overige = *eigen chauffeur*.
 
-Beperkingen: een transactie die in MendriX wordt verwijderd blijft in de datatabel staan;
-de periode in het portaal is de geplande datum van de taak. In `n8n/europallet-sync.workflow.ts`
+MendriX maakt bij een gewijzigde order (bijvoorbeeld een ander aantal pallets) nieuwe
+emballagetransacties aan en verwijdert de oude. Elke run verwijdert daarom uit de datatabel de
+regels van gelezen orders die MendriX niet meer teruggeeft (nodes "Bestaande regels lezen",
+"Verwijderde transacties bepalen", "Verwijderen uit datatabel").
+
+De periode in het portaal is de geplande datum van de taak. Actie `transacties` stuurt van elke
+order ook de laad- of lostaak buiten de periode of het filter mee (`inSelectie: false`). In `n8n/europallet-sync.workflow.ts`
 staan de SOAP-gegevens als `VUL_IN_…`; in n8n staan ze (net als in de andere LIVE-workflows)
 nog in de Code-nodes en horen ze naar een credential.

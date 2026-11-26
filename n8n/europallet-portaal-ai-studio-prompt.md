@@ -76,10 +76,10 @@ Dezelfde filters als bij `overzicht`. Antwoord: `{ "aantal": 3, "afgekapt": fals
 { "transId": "2264501", "orderId": "1428391", "referentie": "4003188329", "klantId": "736", "klantNr": "56190", "klant": "Konimpex B.V",
   "taak": "Laden", "afgemeld": true, "status": "1800", "verpakking": "Europallet", "in": 22, "uit": 0,
   "adres": "A. Roemaat transport Groenlo", "plaats": "Groenlo NL", "gepland": "2026-11-10T08:00",
-  "groep": "uitbesteed", "soort": "99999 uitbesteed", "uitvoerder": "Logicall Transport Venlo B.V." }
+  "groep": "uitbesteed", "soort": "99999 uitbesteed", "uitvoerder": "Logicall Transport Venlo B.V.", "inSelectie": true }
 ```
 
-Maximaal 5000 regels per antwoord. Is `afgekapt` true, toon dan "Meer dan 5000 regels; verklein de periode of filter".
+Van elke order die in de selectie valt, komen altijd alle laad- en lostaken mee: regels buiten de periode of het filter hebben `"inSelectie": false`. Toon die regels in het detail van een order (lichter, met het label "buiten periode"), maar tel ze niet mee in totalen. Maximaal 5000 regels per antwoord. Is `afgekapt` true, toon dan "Meer dan 5000 regels; verklein de periode of filter".
 
 Bij een fout komt `{ "error": "..." }` terug, met status 400 (fout in het verzoek) of 401 (verkeerde of ontbrekende sleutel). Toon de foutmelding. Bij 401 of 500: toon "De API-sleutel in de app-instellingen (Secrets: EUROPALLET_API_KEY) ontbreekt of klopt niet."
 
