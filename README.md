@@ -156,17 +156,22 @@ n8n-workflow **"Tamigo - Verlofplanning per afdeling (elke 24 uur)"** (id `sSmEU
    (`GET /employees/`) en verlof van de vorige maand t/m 3 maanden vooruit
    (`GET /LeaveRequests/All/`). De Code node *Gegevens opslaan* bewaart het resultaat in de
    workflow-static-data.
-2. **`GET /webhook/verlofplanning`** (basic auth) toont het weekoverzicht: per afdeling alle
+2. **`GET /webhook/verlofplanning?token=…`** toont het weekoverzicht: per afdeling alle
    medewerkers, ook zonder verlof, met verlof/ziekte per werkdag. Zijn de gegevens ouder dan
    26 uur (of nog leeg), of roep je de pagina aan met `?verversen=1`, dan haalt de workflow
    eerst opnieuw op.
 
-Benodigde credentials in n8n: *Tamigo applicatie (PowerBI)* (Custom Auth, body
-`{"Name":"PowerBI","Key":"…"}`) en *Verlofplanning login* (Basic Auth voor de pagina).
+Live sinds 27 november 2026. Geen losse n8n-credentials: de Tamigo-login (Name/Key) staat in de
+body van *Tamigo inloggen*, en beide webhooks controleren een token (`?token=…`,
+`Authorization: Bearer …` of `x-api-key`); bij een fout token antwoorden ze 401. De token staat
+niet in deze repo. Let op: de HTML-pagina weigert bots (dus ook `curl` zonder browser-User-Agent).
+
+`n8n/tamigo-verlofplanning.workflow.ts` is de eerste versie; daarna zijn in n8n de token-controle,
+het JSON-endpoint en de tijdzone Europe/Amsterdam toegevoegd.
 
 Bronbestanden: `n8n/tamigo-verlofplanning.html` (pagina), `n8n/tamigo-verlof-opslaan.js`
 (Code node), `n8n/build_tamigo_verlof.py` bouwt daaruit `n8n/tamigo-verlofplanning.workflow.ts`.
 
-**JSON voor apps**: `GET /webhook/verlofplanning/data` (zelfde basic auth, CORS `*`) geeft de bewaarde
+**JSON voor apps**: `GET /webhook/verlofplanning/data` (token als `Authorization: Bearer`, CORS `*`; ververst ook zelf als de data ouder dan 26 uur is) geeft de bewaarde
 gegevens als JSON (`deps`, `employees`, `rows`, `updated`). De prompt voor een Google AI Studio-app
 die dit visueel toont staat in `docs/google-ai-studio-prompt.md`.

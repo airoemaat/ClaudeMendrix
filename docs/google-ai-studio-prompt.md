@@ -2,6 +2,8 @@
 
 Plak alles tussen de lijnen in Google AI Studio → **Build**.
 
+> De verbinding is inmiddels anders geregeld: gebruik daarna de **vervolgprompt onderaan** (token als Secret, server-side). Die vervangt de pop-up en de Basic-auth uit sectie 1 en 2.
+
 ---
 
 Bouw een webapp in het Nederlands: **"Verlofplanning"**. De app toont per afdeling en per week welke medewerkers verlof hebben, ziek zijn of andere afwezigheid hebben, en wie er gewoon aanwezig is. De gegevens komen uit een n8n-API (die ze dagelijks uit het roostersysteem Tamigo haalt). De app slaat zelf niets op een server op en gebruikt geen Gemini-API voor de data.
@@ -143,15 +145,14 @@ Verzonnen namen, november 2026:
 
 ---
 
-## Vervolgprompt: inloggegevens als Secret (server-side)
+## Vervolgprompt: token als Secret (server-side)
 
 Eerst in AI Studio: **Settings → Secrets** en voeg toe:
 
 | Naam | Waarde |
 |---|---|
 | `VERLOF_API_URL` | `https://roemaat.app.n8n.cloud/webhook/verlofplanning/data` |
-| `VERLOF_API_USER` | gebruikersnaam van de n8n-credential "Verlofplanning login" |
-| `VERLOF_API_PASSWORD` | wachtwoord daarvan |
+| `VERLOF_API_TOKEN` | de token (staat niet in deze repo; vraag hem op bij de beheerder) |
 
 Daarna deze prompt plakken:
 
@@ -159,12 +160,12 @@ Daarna deze prompt plakken:
 
 Pas de app aan zodat de verbinding met de verlof-API niet meer in de browser wordt ingevuld, maar via Secrets loopt:
 
-1. Maak de app full-stack met een kleine server-side route **`GET /api/verlof`**. Die route leest de secrets `VERLOF_API_URL`, `VERLOF_API_USER` en `VERLOF_API_PASSWORD` uit de omgevingsvariabelen, roept `VERLOF_API_URL` aan met de header `Authorization: Basic base64(USER:PASSWORD)` en `Accept: application/json`, en geeft de JSON ongewijzigd door aan de browser (met `Cache-Control: no-store`).
+1. Maak de app full-stack met een kleine server-side route **`GET /api/verlof`**. Die route leest de secrets `VERLOF_API_URL` en `VERLOF_API_TOKEN` uit de omgevingsvariabelen, roept `VERLOF_API_URL` aan met de headers `Authorization: Bearer <VERLOF_API_TOKEN>` en `Accept: application/json`, en geeft de JSON ongewijzigd door aan de browser (met `Cache-Control: no-store`). Gebruik een time-out van 60 seconden: de eerste aanroep van de dag kan ongeveer 15 seconden duren omdat de API dan eerst ververst.
 2. De secrets mogen **nooit** in de client-code, de bundle, de URL of in logs terechtkomen. Geef ze niet door via `define`, `import.meta.env` of `VITE_`-variabelen. Alleen de server-route leest ze.
-3. Foutafhandeling in de route: ontbreekt een secret → 500 met `{"ok":false,"error":"Secret VERLOF_API_… ontbreekt in AI Studio (Settings → Secrets)."}`; 401 van n8n → `{"ok":false,"error":"Gebruikersnaam of wachtwoord in de Secrets klopt niet."}`; 404 → `{"ok":false,"error":"API-adres niet gevonden. Staat de n8n-workflow aan?"}`; time-out na 30 seconden → nette melding.
+3. Foutafhandeling in de route: ontbreekt een secret → 500 met `{"ok":false,"error":"Secret VERLOF_API_URL of VERLOF_API_TOKEN ontbreekt in AI Studio (Settings → Secrets)."}`; 401 van de API → `{"ok":false,"error":"De token in de Secrets klopt niet."}`; 404 → `{"ok":false,"error":"API-adres niet gevonden. Staat de n8n-workflow aan?"}`; time-out → nette melding.
 4. De frontend haalt de data alleen nog op via `fetch("/api/verlof")`, zonder inloggegevens.
 5. **Verwijder de pop-up "Verbinding met verlof-API"** met de velden voor URL, gebruikersnaam en wachtwoord, en verwijder alles wat die gegevens in `localStorage` bewaart (ruim bestaande sleutels één keer op).
-6. Vervang de tandwiel-knop door een klein statuslabel rechtsboven: groen "Verbonden · bijgewerkt 27 nov 05:00" of rood met de foutmelding uit de route, plus de knop "Vernieuwen".
+6. Vervang de tandwiel-knop door een klein statuslabel rechtsboven: groen "Verbonden · bijgewerkt 27 nov 05:00" (uit het veld `updated`) of rood met de foutmelding uit de route, plus de knop "Vernieuwen".
 7. De knop "Bekijk met voorbeelddata" blijft bestaan, maar als kleine link in de foutmelding en onderaan de pagina (met de gele balk "Voorbeelddata – geen echte gegevens").
 8. Laat de rest van de app (filters, KPI's, grafiek, weekoverzicht, medewerker-detail) ongewijzigd.
 
