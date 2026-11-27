@@ -12,6 +12,7 @@ Gebruik:
     python tamigo.py attendance --from 2026-10-01 --to 2026-10-31 [--department ID|all]
     python tamigo.py login-overview --from 2026-11-01 [--department ID|all]
     python tamigo.py actual-shifts --date 2026-11-10 [--department ID|all] [--employee ID]
+    python tamigo.py leave --from 2026-11-01 --to 2026-11-30 [--department "Administratie"]
     python tamigo.py activities
     python tamigo.py raw "/departments/application/?includeParents=includeParentDepartments"
 
@@ -193,6 +194,28 @@ class TamigoClient:
             employeeId=employee_id,
         )
 
+    def leave(self, start, end, department=None):
+        """Verlof/afwezigheid (ook lopende afwezigheden die de periode overlappen).
+
+        `department` mag een afdelings-ID, -key of (deel van de) naam zijn; Tamigo
+        filtert zelf niet op afdeling, dus dat gebeurt hier.
+        """
+        rows = self.get("/LeaveRequests/All/", startdate=_ymd(start), enddate=_ymd(end)) or []
+        if department:
+            wanted = department.strip().lower()
+            ids = {
+                d["DepartmentId"] for d in self.departments()
+                if wanted in (d["DepartmentId"].lower(), (d.get("DepartmentKey") or "").strip().lower())
+                or wanted in d["Name"].lower()
+            }
+            rows = [r for r in rows if r.get("DepartmentId") in ids]
+        for r in rows:
+            r["Status"] = ("goedgekeurd" if r.get("LeaveApproved")
+                           else "afgewezen" if r.get("LeaveRejected") else "aangevraagd")
+            r["LeaveType"] = (r.get("LeaveType") or "").strip()
+        rows.sort(key=lambda r: (r.get("EmployeeName") or "", r.get("LeaveStartDate") or ""))
+        return rows
+
     def activities(self):
         return self.get("/ShiftActivities/")
 
@@ -306,6 +329,11 @@ def build_parser():
     s.add_argument("--date", required=True, type=parse_date)
     s.add_argument("--department", default="all")
     s.add_argument("--employee")
+    s = sub.add_parser("leave", parents=[common], help="verlof/afwezigheid in een periode")
+    s.add_argument("--from", dest="start", required=True, type=parse_date)
+    s.add_argument("--to", dest="end", required=True, type=parse_date)
+    s.add_argument("--department", help="afdelings-ID, -key of deel van de naam (leeg = alle)")
+    s.add_argument("--details", action="store_true", help="ook AbsenceShifts (per dag) meenemen")
     sub.add_parser("activities", parents=[common], help="dienstactiviteiten")
     s = sub.add_parser("raw", parents=[common], help="willekeurig GET-pad")
     s.add_argument("path")
@@ -336,6 +364,12 @@ def main(argv=None):
             data = client.login_overview(args.start, args.department)
         elif c == "actual-shifts":
             data = client.actual_shifts(args.date, args.department, args.employee)
+        elif c == "leave":
+            data = client.leave(args.start, args.end, args.department)
+            if not args.details:
+                cols = ["EmployeeName", "DepartmentName", "LeaveType", "LeaveStartDate",
+                        "LeaveEndDate", "Sum", "Status", "Ongoing", "EmployeeId"]
+                data = [{k: r.get(k) for k in cols} for r in data]
         elif c == "activities":
             data = client.activities()
         elif c == "raw":

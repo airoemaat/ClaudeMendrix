@@ -119,6 +119,7 @@ python tamigo.py shifts --from 2026-11-23 --to 2026-11-30 --csv -o planning.csv
 python tamigo.py shifts --from 2026-11-23 --to 2026-11-30 --department e2175d06-6a13-48f4-b51a-95aa85756609
 python tamigo.py attendance --from 2026-10-01 --to 2026-11-01 --csv -o geklokte_uren.csv
 python tamigo.py login-overview --from 2026-11-01
+python tamigo.py leave --from 2026-11-01 --to 2026-11-30 --department "Administratie" --csv -o verlof.csv
 python tamigo.py raw "/departments/application/?includeParents=includeParentDepartments"
 ```
 
@@ -141,4 +142,8 @@ AbsenceBalance, Attendance, Shifts, Kpi, HrData, Departments, Payroll):
 | `attendance` | `GET /attendance/CheckInOutOverview/` | werkt |
 | `login-overview` | `GET /employees/LoginOverview/` | werkt |
 | `actual-shifts` | `GET /actualshifts/past/{dd-mm-jjjj}/` | 401 met applicatielogin |
+| `leave` | `GET /LeaveRequests/All/?startdate=&enddate=` | werkt; afdelingsfilter (ID, key of naam) doet het script |
 | `activities` | `GET /ShiftActivities/` | 403: rol ontbreekt voor dit account |
+
+`leave`: ook afwezigheden die vóór de periode begonnen of erna doorlopen komen mee; `Sum` zijn
+de uren van de héle afwezigheid. `LeaveEndDate` is exclusief (26-11 t/m 28-11 = 26 en 27 november).
