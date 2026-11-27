@@ -147,3 +147,22 @@ AbsenceBalance, Attendance, Shifts, Kpi, HrData, Departments, Payroll):
 
 `leave`: ook afwezigheden die vóór de periode begonnen of erna doorlopen komen mee; `Sum` zijn
 de uren van de héle afwezigheid. `LeaveEndDate` is exclusief (26-11 t/m 28-11 = 26 en 27 november).
+
+## Tamigo: verlofplanning per afdeling (n8n, elke 24 uur)
+
+n8n-workflow **"Tamigo - Verlofplanning per afdeling (elke 24 uur)"** (id `sSmEUXwAz8dSu9vt`):
+
+1. **Elke dag 05:00**: inloggen bij Tamigo, dan afdelingen, alle actieve medewerkers
+   (`GET /employees/`) en verlof van de vorige maand t/m 3 maanden vooruit
+   (`GET /LeaveRequests/All/`). De Code node *Gegevens opslaan* bewaart het resultaat in de
+   workflow-static-data.
+2. **`GET /webhook/verlofplanning`** (basic auth) toont het weekoverzicht: per afdeling alle
+   medewerkers, ook zonder verlof, met verlof/ziekte per werkdag. Zijn de gegevens ouder dan
+   26 uur (of nog leeg), of roep je de pagina aan met `?verversen=1`, dan haalt de workflow
+   eerst opnieuw op.
+
+Benodigde credentials in n8n: *Tamigo applicatie (PowerBI)* (Custom Auth, body
+`{"Name":"PowerBI","Key":"…"}`) en *Verlofplanning login* (Basic Auth voor de pagina).
+
+Bronbestanden: `n8n/tamigo-verlofplanning.html` (pagina), `n8n/tamigo-verlof-opslaan.js`
+(Code node), `n8n/build_tamigo_verlof.py` bouwt daaruit `n8n/tamigo-verlofplanning.workflow.ts`.

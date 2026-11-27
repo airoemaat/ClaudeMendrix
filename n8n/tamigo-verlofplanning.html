@@ -1,0 +1,313 @@
+<title>Verlofplanning Tamigo</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: kop met keuze afdeling/maand en totalen, dan per ISO-week een rooster medewerker × werkdag met gekleurde afwezigheidsblokken */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --fg:#1b2330; --muted:#5d6878; --line:#e1e5eb; --soft:#eef1f5;
+  --accent:#2f5bd3; --today:#2f5bd3;
+  --verlof-bg:#dbe7ff; --verlof-fg:#1c3f9e; --verlof-bar:#3d6ae0;
+  --ziek-bg:#fde0de; --ziek-fg:#9b2420; --ziek-bar:#d9453d;
+  --ouder-bg:#ece2fb; --ouder-fg:#5b2ea3; --ouder-bar:#8656d6;
+  --arts-bg:#fdedc8; --arts-fg:#7a4b00; --arts-bar:#d9940f;
+  --f-head:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#10141b; --surface:#181e28; --fg:#e6eaf0; --muted:#9aa5b4; --line:#2a3240; --soft:#1f2632;
+  --accent:#7ea2ff; --today:#7ea2ff;
+  --verlof-bg:#1d2c52; --verlof-fg:#b9ccff; --verlof-bar:#6f93f5;
+  --ziek-bg:#4a1f1e; --ziek-fg:#ffbdb8; --ziek-bar:#f0716a;
+  --ouder-bg:#33244f; --ouder-fg:#d8c3ff; --ouder-bar:#a882ee;
+  --arts-bg:#45330f; --arts-fg:#ffd98a; --arts-bar:#e8ab33;
+  color-scheme:dark}
+}
+:root[data-theme="dark"]{
+  --bg:#10141b; --surface:#181e28; --fg:#e6eaf0; --muted:#9aa5b4; --line:#2a3240; --soft:#1f2632;
+  --accent:#7ea2ff; --today:#7ea2ff;
+  --verlof-bg:#1d2c52; --verlof-fg:#b9ccff; --verlof-bar:#6f93f5;
+  --ziek-bg:#4a1f1e; --ziek-fg:#ffbdb8; --ziek-bar:#f0716a;
+  --ouder-bg:#33244f; --ouder-fg:#d8c3ff; --ouder-bar:#a882ee;
+  --arts-bg:#45330f; --arts-fg:#ffd98a; --arts-bar:#e8ab33;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45}
+.wrap{max-width:1180px;margin:0 auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:18px}
+.eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--f-head);font-size:clamp(26px,4vw,36px);margin:4px 0 0;line-height:1.1;text-wrap:balance}
+.sub{color:var(--muted);margin-top:6px}
+.controls{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field label{font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.controls select{font:inherit;font-size:14px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);max-width:100%}
+.chk{display:inline-flex;gap:6px;align-items:center;color:var(--muted);font-size:13px;cursor:pointer;align-self:flex-end;padding-bottom:9px}
+.controls select:focus-visible,.chk input:focus-visible,.tag:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.legend{display:flex;flex-wrap:wrap;gap:8px}
+.tag{display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);font-size:13px;cursor:pointer;color:var(--fg);font-family:inherit}
+.tag .dot{width:10px;height:10px;border-radius:3px}
+.tag b{font-family:var(--f-mono);font-weight:500;color:var(--muted)}
+.tag[aria-pressed="false"]{opacity:.45}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.kpi .v{font-family:var(--f-head);font-size:26px;font-weight:600;font-variant-numeric:tabular-nums}
+.kpi .l{color:var(--muted);font-size:12.5px}
+#weeks{display:flex;flex-direction:column;gap:16px}
+.week{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.week-h{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.week-h h2{font-family:var(--f-head);font-size:18px;margin:0}
+.week-h h2 span{color:var(--muted);font-weight:500;font-size:14px;margin-left:8px}
+.week-h .tot{font-family:var(--f-mono);font-size:12.5px;color:var(--muted)}
+.scroll{overflow-x:auto}
+.grid{display:grid;grid-template-columns:minmax(170px,1.3fr) repeat(5,minmax(118px,1fr));min-width:780px}
+.cell{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:7px 8px;min-height:46px;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.cell.name{border-left:0;font-weight:500;padding-left:16px}
+.name small{display:block;color:var(--muted);font-weight:400;font-size:12px}
+.grid > .cell:nth-last-child(-n+6){border-bottom:0}
+.dh{align-items:flex-start;background:var(--soft);min-height:52px;gap:1px}
+.dh .wd{font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.dh .dt{font-family:var(--f-head);font-weight:600;font-size:15px}
+.dh .cnt{font-family:var(--f-mono);font-size:11.5px;color:var(--muted)}
+.dh.today{box-shadow:inset 0 -3px 0 var(--today)}
+.dh.today .dt::after{content:" vandaag";font-family:var(--f-body);font-size:11px;color:var(--today);font-weight:600}
+.off{background:repeating-linear-gradient(135deg,transparent 0 6px,var(--soft) 6px 12px)}
+.dh.off .dt{color:var(--muted)}
+.corner{background:var(--soft);border-left:0;padding-left:16px;color:var(--muted);font-size:12px}
+.chip{width:100%;border-radius:7px;padding:5px 8px;font-size:12.5px;line-height:1.25;border-left:4px solid;display:flex;flex-direction:column;gap:1px}
+.chip .t{font-weight:600}
+.chip .m{font-family:var(--f-mono);font-size:11px;opacity:.85}
+.chip.req{border-style:dashed;border-width:1px 1px 1px 4px;background:transparent}
+.chip.rej{opacity:.55}
+.chip.rej .t{text-decoration:line-through}
+.c-verlof{background:var(--verlof-bg);color:var(--verlof-fg);border-color:var(--verlof-bar)}
+.c-ziek{background:var(--ziek-bg);color:var(--ziek-fg);border-color:var(--ziek-bar)}
+.c-ouder{background:var(--ouder-bg);color:var(--ouder-fg);border-color:var(--ouder-bar)}
+.c-arts{background:var(--arts-bg);color:var(--arts-fg);border-color:var(--arts-bar)}
+.c-feest{background:var(--soft);color:var(--muted);border-color:var(--muted)}
+.d-verlof{background:var(--verlof-bar)}.d-ziek{background:var(--ziek-bar)}.d-ouder{background:var(--ouder-bar)}.d-arts{background:var(--arts-bar)}.d-feest{background:var(--muted)}
+.empty{padding:16px;color:var(--muted)}
+.foot{color:var(--muted);font-size:12.5px;max-width:75ch;display:flex;flex-direction:column;gap:6px}
+@media (max-width:520px){.kpi .v{font-size:22px}
+}
+@media (prefers-reduced-motion:no-preference){.week{transition:opacity .15s}
+}
+</style>
+
+<style>
+.cell.name.free{color:var(--muted);font-weight:400}
+.updated{font-family:var(--f-mono);font-size:12px;color:var(--muted)}
+.search{font:inherit;font-size:14px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);min-width:0;width:200px;max-width:100%}
+.search:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow" id="eyebrow">Tamigo · verlof en afwezigheid</div>
+    <h1 id="h1">Verlof en afwezigheid</h1>
+    <div class="sub">Per week, maandag t/m vrijdag. Alle medewerkers van de afdeling staan erin; een leeg vak betekent geen verlof of ziekte geregistreerd.</div>
+    <div class="updated" id="updated"></div>
+  </header>
+  <div class="controls">
+    <div class="field"><label for="dep">Afdeling</label><select id="dep"></select></div>
+    <div class="field"><label for="mon">Maand</label><select id="mon"></select></div>
+    <div class="field"><label for="q">Zoek medewerker</label><input class="search" id="q" type="search" placeholder="Naam…" autocomplete="off"></div>
+    <label class="chk"><input type="checkbox" id="only"> Alleen afwezigen</label>
+    <label class="chk"><input type="checkbox" id="rej"> Afgewezen aanvragen tonen</label>
+  </div>
+  <div class="legend" id="legend"></div>
+  <section class="kpis" id="kpis"></section>
+  <main id="weeks"><div class="empty">Verlofgegevens laden…</div></main>
+  <div class="foot">
+    <div id="source">Bron: Tamigo.</div>
+    <div>Gestippeld blok: aangevraagd, nog niet goedgekeurd. Doorgestreept: afgewezen (standaard verborgen). Feestdagen en afgewezen aanvragen tellen niet mee in de totalen.</div>
+    <div>Bij afwezigheid van één dag staan de tijden en uren erbij. Bij een langere afwezigheid geeft Tamigo alleen het totaal over de hele periode; dat staat bij het eerste blok van de week. Medewerkers staan bij hun thuisafdeling in Tamigo; wie verlof heeft op een andere afdeling, staat daar ook.</div>
+  </div>
+</div>
+
+<script id="__data" type="application/json">__DATA__</script>
+<script>
+const CATS = {
+  verlof:"Verlof & roostervrij",
+  ziek:"Ziek",
+  ouder:"Ouderschap, geboorte & bijzonder",
+  arts:"Huisarts, cursus & overig",
+  feest:"Feestdag"
+};
+function cat(t){
+  const x=t.toLowerCase();
+  if(x.startsWith("feestdag")) return "feest";
+  if(x.startsWith("ziek")) return "ziek";
+  if(/ouderschap|geboorte|bijzonder|zorgverlof/.test(x)) return "ouder";
+  if(/huisarts|cursus|examen/.test(x)) return "arts";
+  if(/verlof|roostervrij|minderuren|tvt/.test(x)) return "verlof";
+  return "arts";
+}
+const SHORT = t => t.replace("Ouderschapsverlof","Ouderschapsv.").replace("Aanvullend geboorteverlof","Aanv. geboortev.").replace(" betaald 70%"," 70%").replace(" betaald 100%"," 100%");
+const DEFAULT_DEP_NAME = "administratie en overig";
+const WD = ["ma","di","wo","do","vr"];
+const MON = ["jan","feb","mrt","apr","mei","jun","jul","aug","sep","okt","nov","dec"];
+const MONL = ["januari","februari","maart","april","mei","juni","juli","augustus","september","oktober","november","december"];
+const shown = new Set(Object.keys(CATS));
+const store = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+};
+const $ = id => document.getElementById(id);
+const d = s => new Date(s+"T12:00:00");
+const iso = dt => `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+const TODAY = iso(new Date());
+const add = (s,n) => { const x=d(s); x.setDate(x.getDate()+n); return iso(x); };
+const fmt = s => { const x=d(s); return x.getDate()+" "+MON[x.getMonth()]; };
+const hrs = h => (Math.round(h*10)/10).toString().replace(".",",")+" u";
+function isoWeek(s){const x=d(s);x.setDate(x.getDate()+3-((x.getDay()+6)%7));const w1=new Date(x.getFullYear(),0,4,12);return 1+Math.round(((x-w1)/864e5-3+((w1.getDay()+6)%7))/7);}
+const esc = s => String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function monthBounds(ym){ const [y,m]=ym.split("-").map(Number); const last=new Date(y,m,0).getDate(); return [ym+"-01", ym+"-"+String(last).padStart(2,"0")]; }
+
+let DATA=null, DEP={};
+
+function setupControls(){
+  DATA.deps.forEach(x=>DEP[x.id]=x);
+  const sel=$("dep"), groups={};
+  for(const dp of DATA.deps.filter(x=>x.has)) (groups[dp.parent||"Overig"] ||= []).push(dp);
+  let html=`<option value="all">Alle afdelingen</option>`;
+  for(const g of Object.keys(groups).sort((a,b)=>a.localeCompare(b,"nl")))
+    html+=`<optgroup label="${esc(g)}">`+groups[g].sort((a,b)=>a.name.localeCompare(b.name,"nl")).map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join("")+`</optgroup>`;
+  sel.innerHTML=html;
+  const def=(DATA.deps.find(x=>x.name.toLowerCase()===DEFAULT_DEP_NAME)||{}).id||"all";
+  const sd=store.get("dep");
+  sel.value = sd && [...sel.options].some(o=>o.value===sd) ? sd : def;
+
+  // maanden die in de gegevens vallen
+  const months=new Set();
+  for(const r of DATA.rows){ for(let m=r.s.slice(0,7); m<=r.e.slice(0,7); ){ months.add(m); const [y,mm]=m.split("-").map(Number); m=mm===12?`${y+1}-01`:`${y}-${String(mm+1).padStart(2,"0")}`; if(months.size>60) break; } }
+  const from=DATA.from?DATA.from.slice(0,7):null, to=DATA.to?DATA.to.slice(0,7):null;
+  const list=[...months].filter(m=>(!from||m>=from)&&(!to||m<=to)).sort();
+  if(!list.includes(TODAY.slice(0,7))) list.push(TODAY.slice(0,7));
+  list.sort();
+  $("mon").innerHTML=list.map(m=>`<option value="${m}">${MONL[Number(m.slice(5))-1]} ${m.slice(0,4)}</option>`).join("");
+  const sm=store.get("mon");
+  $("mon").value = sm && list.includes(sm) ? sm : (list.includes(TODAY.slice(0,7))?TODAY.slice(0,7):list[list.length-1]);
+  const so=store.get("only"); $("only").checked = so==="1";
+
+  sel.onchange=()=>{store.set("dep",sel.value);render();};
+  $("mon").onchange=()=>{store.set("mon",$("mon").value);render();};
+  $("only").onchange=()=>{store.set("only",$("only").checked?"1":"0");render();};
+  $("rej").onchange=render;
+  $("q").oninput=render;
+
+  if(DATA.updated){
+    const u=new Date(DATA.updated);
+    $("updated").textContent="Bijgewerkt: "+u.getDate()+" "+MONL[u.getMonth()]+" "+u.getFullYear()+", "+String(u.getHours()).padStart(2,"0")+":"+String(u.getMinutes()).padStart(2,"0");
+    $("source").innerHTML=`Bron: Tamigo <code>GET /LeaveRequests/All/</code> en <code>GET /employees/</code>${DATA.from?`, periode ${fmt(DATA.from)} ${DATA.from.slice(0,4)} t/m ${fmt(DATA.to)} ${DATA.to.slice(0,4)}`:""}.`;
+  }
+}
+
+function legend(rows){
+  const el=$("legend"); el.innerHTML="";
+  for(const [k,label] of Object.entries(CATS)){
+    const n=rows.filter(r=>cat(r.t)===k).length;
+    if(!n) continue;
+    const b=document.createElement("button");
+    b.className="tag"; b.id="f-"+k; b.setAttribute("aria-pressed",shown.has(k));
+    b.innerHTML=`<span class="dot d-${k}"></span>${label} <b>${n}</b>`;
+    b.onclick=()=>{shown.has(k)?shown.delete(k):shown.add(k); render();};
+    el.appendChild(b);
+  }
+}
+
+function chip(r,day,weekDays){
+  const k=cat(r.t);
+  let meta="";
+  if(r.s===r.e){
+    const parts=[];
+    if(r.time && r.time!=="00:00 - 00:00") parts.push(r.time.replace(" - ","–"));
+    if(r.h) parts.push(hrs(r.h));
+    meta=parts.join(" · ");
+  } else if(day===weekDays.find(x=>x>=r.s&&x<=r.e)){
+    meta=(r.s<day?"sinds ":"")+fmt(r.s)+" t/m "+fmt(r.e)+(r.h?" · "+hrs(r.h)+" totaal":"");
+  }
+  const cls = r.st==="aangevraagd"?" req":r.st==="afgewezen"?" rej":"";
+  const stTxt = r.st==="aangevraagd"?" (aangevraagd)":r.st==="afgewezen"?" (afgewezen)":"";
+  return `<div class="chip c-${k}${cls}" title="${esc(r.n)}: ${esc(r.t)}${stTxt}, ${fmt(r.s)} t/m ${fmt(r.e)}${r.h?" ("+hrs(r.h)+")":""}"><span class="t">${esc(SHORT(r.t))}${stTxt}</span>${meta?`<span class="m">${meta}</span>`:""}</div>`;
+}
+
+function render(){
+  const depVal=$("dep").value, ym=$("mon").value, [ms,me]=monthBounds(ym);
+  const all=depVal==="all", showRej=$("rej").checked, only=$("only").checked, q=$("q").value.trim().toLowerCase();
+  $("eyebrow").textContent="Tamigo · "+(all?"alle afdelingen":DEP[depVal].name);
+  $("h1").textContent="Verlof en afwezigheid, "+MONL[Number(ym.slice(5))-1]+" "+ym.slice(0,4);
+
+  // medewerkers van de afdeling (thuisafdeling), plus wie verlof heeft op deze afdeling
+  const people=new Map(); // key -> {n, d}
+  for(const e of DATA.employees) if(all||e.d===depVal) people.set(e.id,{n:e.n,d:e.d});
+  const inMonth=DATA.rows.filter(r=>(all||r.d===depVal) && r.s<=me && r.e>=ms && (showRej||r.st!=="afgewezen"));
+  for(const r of inMonth){ const k=r.id||r.n; if(!people.has(k)) people.set(k,{n:r.n,d:r.d}); }
+  legend(inMonth);
+  const rows=inMonth.filter(r=>shown.has(cat(r.t)));
+  const keyOf=r=>r.id||r.n;
+  const counts=x=>cat(x.t)!=="feest"&&x.st!=="afgewezen";
+  const real=rows.filter(counts);
+
+  const workdays=[]; for(let s=ms;s<=me;s=add(s,1)){const g=d(s).getDay(); if(g>0&&g<6) workdays.push(s);}
+  let personDays=0, peak=0, peakDay="";
+  for(const day of workdays){
+    const n=new Set(real.filter(r=>r.s<=day&&r.e>=day).map(keyOf)).size;
+    personDays+=n; if(n>peak){peak=n;peakDay=day;}
+  }
+  const total=people.size;
+  const absentToday = (TODAY>=ms&&TODAY<=me) ? new Set(real.filter(r=>r.s<=TODAY&&r.e>=TODAY).map(keyOf)).size : null;
+  $("kpis").innerHTML=[
+    [total,"medewerkers"],
+    [new Set(real.map(keyOf)).size,"afwezig deze maand"],
+    absentToday===null ? [peak,"drukste dag"+(peakDay?": "+WD[(d(peakDay).getDay()+6)%7]+" "+fmt(peakDay):"")] : [total-absentToday,"aanwezig vandaag ("+absentToday+" afwezig)"],
+    [personDays,"afwezige werkdagen (per persoon)"],
+    [rows.filter(r=>r.st==="aangevraagd").length,"aanvragen nog open"]
+  ].map(([v,l])=>`<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+
+  const sortedPeople=[...people.entries()].filter(([k,p])=>!q||p.n.toLowerCase().includes(q))
+    .sort((a,b)=>a[1].n.localeCompare(b[1].n,"nl"));
+
+  const main=$("weeks"); main.innerHTML="";
+  let mon=workdays[0]; while(d(mon).getDay()!==1) mon=add(mon,-1);
+  for(;mon<=me;mon=add(mon,7)){
+    const days=[0,1,2,3,4].map(i=>add(mon,i));
+    const inWeek=rows.filter(r=>r.s<=days[4]&&r.e>=days[0]);
+    const byPerson={}; for(const r of inWeek) (byPerson[keyOf(r)] ||= []).push(r);
+    const counted=inWeek.filter(counts);
+    const absentKeys=new Set(counted.map(keyOf));
+    const list=sortedPeople.filter(([k])=>!only||byPerson[k]);
+    const sec=document.createElement("section"); sec.className="week";
+    sec.innerHTML=`<div class="week-h"><h2>Week ${isoWeek(mon)}<span>${fmt(days[0])} – ${fmt(days[4])}</span></h2><div class="tot">${absentKeys.size} van ${total} afwezig</div></div>`;
+    if(!list.length){ sec.insertAdjacentHTML("beforeend",`<div class="empty">${only?"Niemand afwezig in deze week.":"Geen medewerkers gevonden."}</div>`); main.appendChild(sec); continue; }
+    let g=`<div class="grid"><div class="cell corner">Medewerker</div>`;
+    days.forEach((day,i)=>{
+      const out=day>me||day<ms;
+      const n=new Set(counted.filter(r=>r.s<=day&&r.e>=day).map(keyOf)).size;
+      g+=`<div class="cell dh${day===TODAY?" today":""}${out?" off":""}"><span class="wd">${WD[i]}</span><span class="dt">${fmt(day)}</span><span class="cnt">${out?MONL[d(day).getMonth()]:`${n} afwezig · ${total-n} aanwezig`}</span></div>`;
+    });
+    for(const [k,p] of list){
+      const mine=byPerson[k]||[];
+      const free=!mine.length;
+      g+=`<div class="cell name${free?" free":""}"><span>${esc(p.n)}${all&&p.d&&DEP[p.d]?`<small>${esc(DEP[p.d].name)}</small>`:""}</span></div>`;
+      for(const day of days){
+        const out=day>me||day<ms;
+        const hit=mine.filter(r=>r.s<=day&&r.e>=day);
+        g+=`<div class="cell${out?" off":""}">${hit.map(r=>chip(r,day,days)).join("")}</div>`;
+      }
+    }
+    g+=`</div>`;
+    sec.insertAdjacentHTML("beforeend",`<div class="scroll">${g}</div>`);
+    main.appendChild(sec);
+  }
+}
+
+try{
+  const raw=document.getElementById("__data").textContent.trim();
+  if(!raw || raw==="__DA"+"TA__") throw new Error("Er zijn nog geen gegevens opgehaald. Laat de workflow eerst één keer draaien.");
+  DATA=JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(raw),c=>c.charCodeAt(0))));
+  setupControls(); render();
+}catch(e){
+  $("weeks").innerHTML=`<div class="empty">${esc(e.message)}</div>`;
+}
+</script>
