@@ -166,3 +166,7 @@ Benodigde credentials in n8n: *Tamigo applicatie (PowerBI)* (Custom Auth, body
 
 Bronbestanden: `n8n/tamigo-verlofplanning.html` (pagina), `n8n/tamigo-verlof-opslaan.js`
 (Code node), `n8n/build_tamigo_verlof.py` bouwt daaruit `n8n/tamigo-verlofplanning.workflow.ts`.
+
+**JSON voor apps**: `GET /webhook/verlofplanning/data` (zelfde basic auth, CORS `*`) geeft de bewaarde
+gegevens als JSON (`deps`, `employees`, `rows`, `updated`). De prompt voor een Google AI Studio-app
+die dit visueel toont staat in `docs/google-ai-studio-prompt.md`.
