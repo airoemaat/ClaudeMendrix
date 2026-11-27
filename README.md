@@ -103,3 +103,42 @@ De zip komt in `downloads/dossier_order_<nr>.zip`, de uitgepakte bestanden in
 - Let op: in de bestaande n8n-workflows "Download Dossier Zipped" en "Order Intake"
   staan gebruikersnaam en wachtwoord als platte tekst in een Set-node. Verplaats die
   naar een credential.
+
+## Tamigo: planning, geklokte uren en medewerkers
+
+`tamigo.py` haalt gegevens uit de [Tamigo API](https://api.tamigo.com) (gebaseerd op de
+Postman-collectie). Alleen Python-standaardbibliotheek. Zet `TAMIGO_APP_NAME` en
+`TAMIGO_APP_KEY` in `.env` (zie `.env.example`); het script logt zelf in via
+`POST /login/application` en stuurt het `SessionToken` mee als header `x-tamigo-token`.
+
+```
+python tamigo.py departments --csv -o afdelingen.csv
+python tamigo.py employees -o medewerkers.json
+python tamigo.py employee-details --include-deleted --csv -o medewerkerdetails.csv
+python tamigo.py shifts --from 2026-11-23 --to 2026-11-30 --csv -o planning.csv
+python tamigo.py shifts --from 2026-11-23 --to 2026-11-30 --department e2175d06-6a13-48f4-b51a-95aa85756609
+python tamigo.py attendance --from 2026-10-01 --to 2026-11-01 --csv -o geklokte_uren.csv
+python tamigo.py login-overview --from 2026-11-01
+python tamigo.py raw "/departments/application/?includeParents=includeParentDepartments"
+```
+
+- Datums als `2026-11-25` of `25-11-2026`; het script zet ze om naar het formaat dat elk
+  endpoint wil. De einddatum is **exclusief** (`--from 2026-10-01 --to 2026-10-01` geeft niets).
+- `/Date(…)/`-waarden worden ISO-tijden; CSV is puntkomma-gescheiden met decimale komma (Excel NL).
+- `shifts` gebruikt standaard `/v2/shifts/` (met namen van medewerker, afdeling, activiteit);
+  `--v1` voor het oude endpoint.
+- Tamigo wil een `/` vóór de querystring (anders 307 + HTML); het script voegt die toe.
+
+Getest op 27 november 2026 met het applicatie-account `PowerBI` (claims: Absence,
+AbsenceBalance, Attendance, Shifts, Kpi, HrData, Departments, Payroll):
+
+| Commando | Endpoint | Resultaat |
+|---|---|---|
+| `departments` | `GET /departments/application/` | werkt |
+| `employees` | `GET /employees/` | werkt |
+| `employee-details` | `GET /v2/employees/getemployeedetails/` | werkt (102 medewerkers, 1 pagina) |
+| `shifts` | `GET /v2/shifts/` en `/shifts/` | werkt |
+| `attendance` | `GET /attendance/CheckInOutOverview/` | werkt |
+| `login-overview` | `GET /employees/LoginOverview/` | werkt |
+| `actual-shifts` | `GET /actualshifts/past/{dd-mm-jjjj}/` | 401 met applicatielogin |
+| `activities` | `GET /ShiftActivities/` | 403: rol ontbreekt voor dit account |
